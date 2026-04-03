@@ -597,7 +597,7 @@
             const rows = await sbFetch('/rest/v1/echo_progress?user_id=eq.' + userId + '&select=*') || [];
             // 转为 { "grade_index": { completed, score } } 格式兼容现有代码
             const map = {};
-            rows.forEach(r => { map[r.grade + '_' + r.article_index] = { completed: r.completed, score: r.score, id: r.id }; });
+            rows.forEach(r => { map[r.grade + '_' + r.article_index] = { completed: r.completed, score: r.score, id: r.id, audio_data: r.audio_data }; });
             return map;
         }
 
@@ -605,7 +605,7 @@
             return await sbFetch('/rest/v1/echo_progress?select=*') || [];
         }
 
-        async function saveProgress(userId, grade, articleIndex, completed, score) {
+        async function saveProgress(userId, grade, articleIndex, completed, score, audioData) {
             await sbFetch('/rest/v1/echo_progress', {
                 method: 'POST',
                 prefer: 'return=representation,resolution=merge-duplicates',
@@ -616,6 +616,7 @@
                     article_index: articleIndex,
                     completed: completed,
                     score: score,
+                    audio_data: audioData || null,
                     practiced_at: new Date().toISOString()
                 })
             });
@@ -965,12 +966,7 @@
         // 标记文章为已完成（async，云端同步）
         async function markArticleCompleted(grade, index, score, audioData) {
             if (!state.currentUser) return;
-            await saveProgress(state.currentUser.id, grade, index, true, score);
-            // 录音数据暂存 localStorage（体积大不适合放云端）
-            if (audioData) {
-                const key = 'echo_audio_' + state.currentUser.id + '_' + grade + '_' + index;
-                localStorage.setItem(key, audioData);
-            }
+            await saveProgress(state.currentUser.id, grade, index, true, score, audioData);
         }
 
         // 获取某学生某年级的完成索引列表（async）
@@ -2018,7 +2014,7 @@
                             if (!article) return;
                             const sColor = ca.score == null ? '#999' : ca.score >= 80 ? '#27AE60' : ca.score >= 60 ? '#F39C12' : '#E74C3C';
                             const audioKey = 'echo_audio_' + student.id + '_' + g + '_' + ca.idx;
-                            const hasAudio = typeof localStorage !== 'undefined' && localStorage.getItem(audioKey);
+                            const hasAudio = ca.score != null && progressMap[g + '_' + ca.idx] && progressMap[g + '_' + ca.idx].audio_data;
                             const audioId = 'audio-' + student.id + '-' + g + '-' + ca.idx;
                             html += `
                             <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #f0f0f0;">
@@ -2028,8 +2024,8 @@
                                 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                                     <span style="font-size:14px;font-weight:700;color:${sColor};">${ca.score != null ? ca.score + '分' : '无评分'}</span>`;
                             if (hasAudio) {
-                                html += `<button onclick="playSavedAudio('${audioId}')" style="padding:4px 10px;background:var(--primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🔊 播放</button>
-                                         <audio id="${audioId}" src="${hasAudio}" preload="none"></audio>`;
+                                html += `<button onclick="playSavedAudio('${audioId}','${progressMap[g+'_'+ca.idx]?.audio_data||''}')" style="padding:4px 10px;background:var(--primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🔊 播放</button>
+                                         <audio id="${audioId}" preload="none"></audio>`;
                             } else {
                                 html += `<span style="font-size:11px;color:#ccc;">无录音</span>`;
                             }
@@ -2044,15 +2040,16 @@
             container.innerHTML = html;
         }
 
-        function playSavedAudio(audioId) {
+        function playSavedAudio(audioId, audioData) {
             const audio = document.getElementById(audioId);
-            if (audio) {
-                if (audio.paused) {
-                    document.querySelectorAll('audio').forEach(a => { if (a.id !== audioId) { a.pause(); a.currentTime = 0; } });
-                    audio.currentTime = 0;
-                    audio.play().catch(e => alert('播放失败: ' + e.message));
-                } else { audio.pause(); audio.currentTime = 0; }
-            }
+            if (!audio) return;
+            if (audioData) audio.src = audioData;
+            if (!audio.src) { alert('暂无录音'); return; }
+            if (audio.paused) {
+                document.querySelectorAll('audio').forEach(a => { if (a.id !== audioId) { a.pause(); a.currentTime = 0; } });
+                audio.currentTime = 0;
+                audio.play().catch(e => alert('播放失败'));
+            } else { audio.pause(); audio.currentTime = 0; }
         }
     </script>
 </body>
