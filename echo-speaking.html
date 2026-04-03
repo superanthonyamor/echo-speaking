@@ -197,7 +197,11 @@
                 </div>
                 
                 <!-- 管理员专属：重置数据按钮 -->
-                <div id="admin-reset-section" style="margin-top:24px;padding-top:20px;border-top:2px dashed #E0E6ED;">
+                            <div style="background:#FFF3CD;border:1px solid #FFD966;border-radius:8px;padding:10px;margin-bottom:16px;text-align:center;">
+                <span style="font-size:13px;">🔧 </span>
+                <button onclick="testProgress()" style="padding:6px 14px;background:#F39C12;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">测试进度加载</button>
+            </div>
+            <div id="admin-reset-section" style="margin-top:24px;padding-top:20px;border-top:2px dashed #E0E6ED;">
                     <button onclick="resetAllData()" style="width:100%;padding:12px;background:#FFEBEE;color:#E74C3C;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;">🔄 重置所有数据</button>
                     <p style="font-size:11px;color:#999;margin-top:8px;text-align:center;">⚠️ 此操作将清除所有账号和练习记录</p>
                 </div>
@@ -2041,7 +2045,7 @@
             }} catch(e) {
                 const loading = document.getElementById('progress-loading');
                 if (loading) loading.remove();
-                container.innerHTML = '<div style="color:#E74C3C;padding:20px;text-align:center;">加载失败: ' + e.message + '<br><button onclick="renderProgressPanel()" style="margin-top:10px;padding:8px 16px;background:#4A90E2;color:white;border:none;border-radius:6px;cursor:pointer;">重试</button></div>';
+                container.innerHTML = '<div style="color:#E74C3C;padding:20px;text-align:center;">❌ 加载失败: ' + e.message + '<br><pre style="text-align:left;font-size:11px;background:#f5f5f5;padding:10px;border-radius:8px;margin-top:10px;overflow:auto;max-height:150px;">' + (e.stack||'').toString().substring(0,500) + '</pre><button onclick="renderProgressPanel()" style="margin-top:10px;padding:8px 16px;background:#4A90E2;color:white;border:none;border-radius:6px;cursor:pointer;">重试</button></div>';
                 console.error('renderProgressPanel error:', e);
             }
         }
@@ -2064,6 +2068,38 @@
             btn.textContent = '⏸️';
             audio.onended = () => { btn.textContent = '🔊 播放'; };
         }
-    </script>
+    
+
+        // 调试函数
+        async function testProgress() {
+            const result = { steps: [], error: null };
+            try {
+                // Step 1: getUsers
+                result.steps.push('1. 获取用户列表...');
+                const users = await getUsers();
+                result.steps.push('1.✅ 成功，用户数: ' + users.length);
+                
+                // Step 2: getStudents
+                const students = users.filter(u => u.role === 'student');
+                result.steps.push('2.✅ 学生数: ' + students.length);
+                
+                if (students.length === 0) {
+                    alert('没有学生账号！请先在"学生管理"里添加学生账号');
+                    return;
+                }
+                
+                // Step 3: getProgress
+                result.steps.push('3. 获取 ' + students[0].name + ' 的进度...');
+                const progress = await getProgress(students[0].id);
+                result.steps.push('3.✅ 进度记录数: ' + Object.keys(progress).length);
+                result.steps.push('3. 进度数据: ' + JSON.stringify(progress).substring(0, 200));
+                
+                alert('调试结果:\n' + result.steps.join('\n'));
+            } catch(e) {
+                result.error = e.message;
+                alert('❌ 出错:\n' + result.steps.join('\n') + '\n\n错误: ' + e.message);
+            }
+        }
+</script>
 </body>
 </html>
