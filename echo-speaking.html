@@ -567,13 +567,12 @@
         }
 
         async function createUser(data) {
-            const hash = await hashPassword(data.password);
             return await sbFetch('/rest/v1/echo_users', {
                 method: 'POST',
                 prefer: 'return=representation',
                 body: JSON.stringify({
                     username: data.username,
-                    password_hash: hash,
+                    password_hash: data.password,
                     role: data.role,
                     name: data.name,
                     grade: data.grade || null,
@@ -589,8 +588,7 @@
         async function loginUser(username, password) {
             const user = await getUserByUsername(username);
             if (!user) return null;
-            const hash = await hashPassword(password);
-            if (user.password_hash !== hash) return null;
+            if (user.password_hash !== password) return null;
             return user;
         }
 
