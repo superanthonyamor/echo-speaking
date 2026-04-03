@@ -1,0 +1,2019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    
+    <!-- PWA 图标 -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%234A90E2' width='100' height='100' rx='20'/><text x='50' y='68' font-size='50' text-anchor='middle' fill='white'>🗣️</text></svg>">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Listen&amp;Speak">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#4A90E2">
+    <link rel="manifest" href="manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Listen&Speak</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --primary: #4A90E2; --bg: #F0F4F8; --card: #FFFFFF; --text: #2C3E50; --recording: #E74C3C; }
+        body { font-family: 'PingFang SC', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .app-header { background: linear-gradient(135deg, var(--primary) 0%, #6BB3F0 100%); color: white; padding: 40px 20px; text-align: center; }
+        .container { max-width: 600px; margin: -60px auto 20px; padding: 0 16px; }
+        .card { background: var(--card); border-radius: 16px; padding: 24px; box-shadow: 0 4px 16px rgba(74, 144, 226, 0.12); }
+        .screen { display: none; }
+        .screen.active { display: block; }
+        .grade-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+        .grade-btn { background: var(--bg); border: 2px solid #E0E6ED; border-radius: 10px; padding: 20px; cursor: pointer; text-align: center; }
+        .grade-btn.selected { border-color: var(--primary); background: var(--primary); color: white; }
+        .btn-primary { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; margin-top: 16px; }
+        .btn-primary:disabled { opacity: 0.5; }
+        .article-title { font-size: 20px; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+        .article-content { font-size: 16px; line-height: 28px; margin-bottom: 20px; }
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn-control { flex: 1; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; }
+        .btn-control.recording { background: var(--recording); }
+        .record-status { text-align: center; padding: 12px; margin-bottom: 16px; border-radius: 8px; background: var(--bg); }
+        .record-status.recording { background: #FFEBEE; color: var(--recording); }
+        .record-status.recorded { background: #E8F5E9; color: #27AE60; }
+        .playback-controls { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+        .btn-small { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; }
+        .back-btn { color: var(--primary); background: none; border: none; font-size: 16px; cursor: pointer; margin-bottom: 16px; }
+        .navigate-row { display: flex; gap: 10px; margin-top: 16px; }
+        .btn-nav { flex: 1; padding: 12px; border-radius: 10px; border: none; cursor: pointer; }
+        .btn-nav.secondary { background: var(--bg); border: 2px solid #E0E6ED; }
+        .btn-nav.primary { background: var(--primary); color: white; }
+        .correction-area { margin-top: 20px; padding: 16px; background: #FFF8E1; border-radius: 12px; }
+        .correction-score { font-size: 32px; font-weight: 700; color: #27AE60; text-align: center; }
+        .word-correct { color: #27AE60; }
+        .word-wrong { color: #E74C3C; text-decoration: line-through; }
+        .vocab-highlight { background: linear-gradient(120deg, #FFF9C4 0%, #FFF176 100%); border-bottom: 2px solid #F9A825; border-radius: 3px; padding: 0 2px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        .vocab-highlight:hover { background: #FFE082; }
+        .vocab-card { display: inline-flex; align-items: center; gap: 10px; background: white; border: 1px solid #E0E6ED; border-radius: 10px; padding: 10px 14px; margin: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+        .vocab-word { font-weight: 700; color: #4A90E2; font-size: 15px; }
+        .vocab-pos { font-size: 11px; color: white; background: #95A5A6; border-radius: 4px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
+        .vocab-pos.n { background: #3498DB; }
+        .vocab-pos.v { background: #27AE60; }
+        .vocab-pos.adj { background: #E67E22; }
+        .vocab-pos.adv { background: #9B59B6; }
+        .vocab-pos.phrase { background: #E74C3C; }
+        .vocab-meaning { font-size: 13px; color: #555; margin-top: 2px; }
+        .vocab-play-btn { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; background: #EBF4FF; border: none; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+        .vocab-play-btn:hover { background: #BDD9F7; }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <div style="font-size: 48px; margin-bottom: 16px;">🗣️</div>
+        <h1>Listen&Speak</h1>
+        <p>跟读练习 · 录音功能 · AI纠错</p>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div id="screen-login" class="screen active">
+                <div style="text-align:center;margin-bottom:24px;">
+                    <div style="font-size:40px;margin-bottom:12px;">🗣️</div>
+                    <h2 style="color:var(--primary);margin-bottom:8px;">欢迎使用 Echo</h2>
+                    <p style="color:#7F8C8D;font-size:14px;">选择您的角色并登录</p>
+                </div>
+                
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0;">
+                    <button class="grade-btn" onclick="selectRole('admin')">
+                        <div style="font-size:28px;">👑</div>
+                        <div style="font-weight:600;">超级管理员</div>
+                    </button>
+                    <button class="grade-btn" onclick="selectRole('teacher')">
+                        <div style="font-size:28px;">👩‍🏫</div>
+                        <div style="font-weight:600;">老师</div>
+                    </button>
+                    <button class="grade-btn" onclick="selectRole('student')">
+                        <div style="font-size:28px;">🎓</div>
+                        <div style="font-weight:600;">学生</div>
+                    </button>
+                </div>
+                
+                <div id="login-form" style="display:none;">
+                    <div class="form-group">
+                        <label id="login-username-label" style="display:block;font-weight:600;margin-bottom:6px;font-size:14px;">用户名</label>
+                        <input type="text" id="login-username" style="width:100%;padding:12px;border:2px solid #E0E6ED;border-radius:8px;font-size:16px;" placeholder="请输入用户名">
+                    </div>
+                    <div class="form-group">
+                        <label style="display:block;font-weight:600;margin-bottom:6px;font-size:14px;">密码</label>
+                        <input type="password" id="login-password" style="width:100%;padding:12px;border:2px solid #E0E6ED;border-radius:8px;font-size:16px;" placeholder="请输入密码">
+                    </div>
+                    <button class="btn-primary" onclick="doLogin()">登录</button>
+                    <button class="btn-primary" id="btn-register" style="display:none;margin-top:10px;background:#27AE60;" onclick="showRegister()">注册</button>
+                </div>
+                
+                <div style="text-align:center;margin-top:20px;font-size:12px;color:#7F8C8D;">v8.0 - 账号管理系统</div>
+            </div>
+
+            <div id="screen-home" class="screen">
+                <div style="font-size: 15px; font-weight: 700; margin: 16px 0 10px;">选择年级</div>
+                <div class="grade-grid">
+                    <button class="grade-btn" onclick="selectGrade('primary')">
+                        <div style="font-size: 28px;">🏫</div>
+                        <div style="font-weight: 600;">小学</div>
+                    </button>
+                    <button class="grade-btn" onclick="selectGrade('middle')">
+                        <div style="font-size: 28px;">🏢</div>
+                        <div style="font-weight: 600;">初中</div>
+                    </button>
+                    <button class="grade-btn" onclick="selectGrade('high')">
+                        <div style="font-size: 28px;">🎓</div>
+                        <div style="font-weight: 600;">高中</div>
+                    </button>
+                </div>
+                <button class="btn-primary" id="btn-start" onclick="startPractice()" disabled>🚀 开始跟读练习</button>
+                <div style="text-align: center; font-size: 11px; color: #7F8C8D; margin-top: 20px; padding-top: 20px; border-top: 1px solid #E0E6ED;">v7.0 - 增强诊断+自动打开设置</div>
+            </div>
+
+            <div id="screen-reading-practice" class="screen">
+                <button class="back-btn" onclick="goHome()">← 返回</button>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #E0E6ED;">
+                    <h2 style="font-size: 18px;">📖 跟读练习</h2>
+                    <span><span id="practice-current">1</span>/<span id="practice-total">20</span></span>
+                </div>
+                <div id="practice-grade" style="background: var(--bg); border-radius: 8px; padding: 8px; text-align: center; font-size: 12px; color: var(--primary); margin-bottom: 16px;"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div class="article-title" id="practice-title" style="margin-bottom:0;"></div>
+                    <span id="practice-completed-badge" style="display:none;font-size:12px;background:#E8F5E9;color:#27AE60;padding:4px 10px;border-radius:20px;font-weight:600;">✅ 已完成</span>
+                </div>
+                <div class="article-content" id="practice-content"></div>
+                <div id="vocab-cards" style="display:none;margin-bottom:20px;"></div>
+                <div class="controls">
+                    <button class="btn-control" id="btn-play" onclick="playAudio()">🔊 听标准发音</button>
+                    <button class="btn-control" id="btn-record" onclick="toggleRecording()">🎙️ 开始录音</button>
+                </div>
+                <div class="record-status" id="record-status" style="display:none;">点击录音按钮开始录音</div>
+                <div id="playback-area" style="display:none;">
+                    <div class="playback-controls">
+                        <button class="btn-small" style="background: var(--primary); color: white;" onclick="playRecording()">▶️ 播放</button>
+                        <button class="btn-small" style="background: #FF9800; color: white;" onclick="startCorrection()">✅ 纠错</button>
+                        <button class="btn-small" style="background: #E74C3C; color: white;" onclick="deleteRecording()">🗑️ 删除</button>
+                    </div>
+                </div>
+                <div id="correction-area" style="display:none;"></div>
+                <div class="navigate-row">
+                    <button class="btn-nav secondary" onclick="prevArticle()" id="practice-prev">⬅️ 上一篇</button>
+                    <button class="btn-nav primary" onclick="nextArticle()" id="practice-next">下一篇 ➡️</button>
+                </div>
+            </div>
+
+            <!-- 管理员/老师仪表盘 -->
+            <div id="screen-admin" class="screen">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#E8F4FD;border-radius:10px;margin-bottom:16px;">
+                    <div>
+                        <div style="font-weight:600;" id="admin-name">超级管理员</div>
+                        <div style="font-size:12px;color:#7F8C8D;" id="admin-role-label">管理员账号</div>
+                    </div>
+                    <button onclick="logout()" style="padding:8px 16px;background:#FFEBEE;color:#E74C3C;border:none;border-radius:6px;cursor:pointer;">退出</button>
+                </div>
+                
+                <div style="display:flex;gap:8px;margin-bottom:20px;">
+                    <button class="admin-tab active" onclick="showAdminTab('teachers')" id="tab-teachers" style="flex:1;padding:10px;text-align:center;background:var(--primary);color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">老师管理</button>
+                    <button class="admin-tab" onclick="showAdminTab('students')" id="tab-students" style="flex:1;padding:10px;text-align:center;background:var(--bg);border:none;border-radius:8px;cursor:pointer;font-size:14px;">学生管理</button>
+                    <button class="admin-tab" onclick="showAdminTab('progress')" id="tab-progress" style="flex:1;padding:10px;text-align:center;background:var(--bg);border:none;border-radius:8px;cursor:pointer;font-size:14px;">📊 进度查看</button>
+                </div>
+                
+                <div id="admin-teachers">
+                    <button class="btn-primary" onclick="showAddUserModal('teacher')">+ 添加老师</button>
+                    <div id="teacher-list" style="max-height:300px;overflow-y:auto;margin-top:12px;"></div>
+                </div>
+                
+                <div id="admin-students" style="display:none;">
+                    <button class="btn-primary" onclick="showAddUserModal('student')">+ 添加学生</button>
+                    <div id="student-list" style="max-height:300px;overflow-y:auto;margin-top:12px;"></div>
+                </div>
+
+                <!-- 进度查看面板 -->
+                <div id="admin-progress" style="display:none;">
+                    <div style="margin-bottom:16px;">
+                        <select id="progress-student-filter" onchange="renderProgressPanel()" style="width:100%;padding:10px;border:2px solid #E0E6ED;border-radius:8px;font-size:14px;">
+                            <option value="all">全部学生</option>
+                        </select>
+                    </div>
+                    <div id="progress-content" style="max-height:500px;overflow-y:auto;"></div>
+                </div>
+                
+                <!-- 管理员专属：重置数据按钮 -->
+                <div id="admin-reset-section" style="margin-top:24px;padding-top:20px;border-top:2px dashed #E0E6ED;">
+                    <button onclick="resetAllData()" style="width:100%;padding:12px;background:#FFEBEE;color:#E74C3C;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;">🔄 重置所有数据</button>
+                    <p style="font-size:11px;color:#999;margin-top:8px;text-align:center;">⚠️ 此操作将清除所有账号和练习记录</p>
+                </div>
+            </div>
+
+            <!-- 学生首页 -->
+            <div id="screen-student-home" class="screen">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#E8F4FD;border-radius:10px;margin-bottom:16px;">
+                    <div>
+                        <div style="font-weight:600;" id="student-name">学生</div>
+                        <div style="font-size:12px;color:#7F8C8D;" id="student-grade-display">年级</div>
+                    </div>
+                    <button onclick="logout()" style="padding:8px 16px;background:#FFEBEE;color:#E74C3C;border:none;border-radius:6px;cursor:pointer;">退出</button>
+                </div>
+                
+                <div style="font-size:15px;font-weight:700;margin:16px 0 10px;">我的练习进度</div>
+                <div id="student-progress-summary" style="margin-bottom:16px;"></div>
+                
+                <div style="font-size:15px;font-weight:700;margin:16px 0 10px;">选择年级开始练习</div>
+                <div class="grade-grid" id="student-grade-grid"></div>
+                
+                <button class="btn-primary" id="btn-start-practice" onclick="startPracticeStudent()" disabled>🚀 开始跟读练习</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 添加用户弹窗 -->
+    <div id="add-user-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:999;">
+        <div style="background:white;padding:24px;border-radius:16px;max-width:90%;width:340px;">
+            <div style="font-size:18px;font-weight:700;margin-bottom:16px;" id="modal-title">添加用户</div>
+            <div class="form-group">
+                <label style="display:block;font-weight:600;margin-bottom:6px;font-size:14px;">用户名</label>
+                <input type="text" id="new-username" style="width:100%;padding:12px;border:2px solid #E0E6ED;border-radius:8px;font-size:16px;" placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label style="display:block;font-weight:600;margin-bottom:6px;font-size:14px;">密码</label>
+                <input type="password" id="new-password" style="width:100%;padding:12px;border:2px solid #E0E6ED;border-radius:8px;font-size:16px;" placeholder="请输入密码">
+            </div>
+            <div class="form-group">
+                <label style="display:block;font-weight:600;margin-bottom:6px;font-size:14px;">姓名</label>
+                <input type="text" id="new-name" style="width:100%;padding:12px;border:2px solid #E0E6ED;border-radius:8px;font-size:16px;" placeholder="请输入姓名">
+            </div>
+            <div class="form-group" id="grade-select-group" style="display:none;">
+                <label style="display:block;font-weight:600;margin-bottom:6px;font-size:14px;">年级</label>
+                <select id="new-grade" style="width:100%;padding:12px;border:2px solid #E0E6ED;border-radius:8px;font-size:16px;">
+                    <option value="primary">小学</option>
+                    <option value="middle">初中</option>
+                    <option value="high">高中</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button onclick="closeModal()" style="flex:1;padding:10px;background:#95A5A6;color:white;border:none;border-radius:8px;cursor:pointer;">取消</button>
+                <button onclick="addUser()" style="flex:1;padding:10px;background:var(--primary);color:white;border:none;border-radius:8px;cursor:pointer;">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const PRIMARY_ARTICLES = [
+            { title: 'My Dog', text: 'I have a dog. His name is Spot. He is big and brown. He likes to run and play. I feed him every day. He eats rice and meat. Spot sleeps in a small house in the yard. He barks when someone comes to the door. I love my dog very much.' },
+            { title: 'My Family', text: 'I have a small family. There are four people in my family. They are my dad, my mom, my sister, and me. My dad goes to work every day. My mom cooks food for us. My sister and I go to school. We are a happy family.' },
+            { title: 'My School', text: 'I go to school every day. My school is not far from my home. I walk to school with my friend. We have six classes every day. I like math and art. My teacher is very kind. I have many friends at school. I like my school very much.' },
+            { title: 'My Room', text: 'This is my room. It is small but clean. I have a bed, a desk, and a chair. My books are on the shelf. I do my homework at my desk every night. My mom helps me keep my room tidy. I like my room because it is my own space.' },
+            { title: 'I Like Fruit', text: 'I like fruit very much. I eat fruit every day. I like apples, bananas, and oranges. Apples are red and sweet. Bananas are yellow and soft. Oranges are round and full of juice. My mom says fruit is good for my health. I always eat fruit after lunch.' },
+            { title: 'The Weather', text: 'Today is a sunny day. The sky is blue and clear. There are no clouds. It is warm outside. I can play in the park. Sometimes it rains. On rainy days, I stay at home and read books. I like sunny days the best because I can go outside and play.' },
+            { title: 'My Morning', text: 'I wake up at seven every morning. First, I wash my face and brush my teeth. Then I eat breakfast with my family. We have bread, eggs, and milk. After breakfast, I put on my school bag and go to school. I am never late for school.' },
+            { title: 'Colors', text: 'I love colors. Red is the color of apples and roses. Yellow is the color of the sun and bananas. Blue is the color of the sky and the sea. Green is the color of grass and trees. My favorite color is blue. What is your favorite color?' },
+            { title: 'My Toys', text: 'I have many toys in my room. I have a toy car, a ball, and some building blocks. My favorite toy is my red toy car. I play with it every day after school. My little sister likes the building blocks. We play together and have a lot of fun.' },
+            { title: 'Animals I Like', text: 'I like animals very much. I like dogs, cats, and rabbits. Dogs are friendly and playful. Cats are quiet and soft. Rabbits have long ears and short tails. My friend has a rabbit at home. I want to have a pet rabbit one day. Animals are our good friends.' },
+            { title: 'My Lunch', text: 'I eat lunch at school every day. Today I have rice, vegetables, and chicken. The food is warm and tasty. I sit with my friends at the lunch table. We talk and laugh while we eat. After lunch, we go outside to play for a short time. I like lunchtime at school.' },
+            { title: 'A Walk in the Park', text: 'On Sunday, I went to the park with my mom. The park is big and green. There are many trees and flowers. We walked on the path and saw some birds. The birds were singing in the trees. I fed some ducks by the pond. It was a fun and happy afternoon.' },
+            { title: 'My Favorite Food', text: 'My favorite food is noodles. My mom makes the best noodles. She puts vegetables, eggs, and meat in the soup. The noodles are soft and the soup is warm. I eat noodles for lunch on weekends. My dad likes noodles too. We always eat together as a family.' },
+            { title: 'Going to the Store', text: 'Yesterday I went to the store with my dad. We needed to buy some food. We got milk, bread, apples, and eggs. The store was big and bright. I helped my dad carry the bag. On the way home, my dad bought me a small ice cream. It was a good day.' },
+            { title: 'My Classmates', text: 'I have many classmates at school. My best friend is Li Ming. He is funny and kind. We sit next to each other in class. We help each other with homework. At break time, we play games together. I also have a friend named Mei. She is good at drawing. I like all my classmates.' },
+            { title: 'Bedtime', text: 'Every night, I get ready for bed at nine o\'clock. I brush my teeth and wash my face. Then I put on my pajamas. My mom reads me a short story before I sleep. I like stories about animals and adventures. After the story, I say good night to my mom and dad. Then I close my eyes and sleep.' },
+            { title: 'My Pencil Case', text: 'I have a blue pencil case. Inside, I have pencils, a ruler, an eraser, and some colored pens. I use my pencils to write and draw. I use the ruler to draw straight lines. My eraser helps me fix mistakes. I keep my pencil case clean and tidy. It is very useful for school.' },
+            { title: 'Seasons', text: 'There are four seasons in a year. They are spring, summer, autumn, and winter. In spring, flowers bloom and birds sing. In summer, it is hot and we can swim. In autumn, the leaves turn red and yellow. In winter, it is cold and sometimes it snows. I like all four seasons.' },
+            { title: 'My Weekend', text: 'I like weekends very much. On Saturday, I do my homework in the morning. In the afternoon, I play outside with my friends. On Sunday, my family goes out together. Sometimes we go to the park or the mall. In the evening, we watch TV together. Weekends are my favorite time of the week.' },
+            { title: 'I Can Help', text: 'I like to help my family at home. I can make my bed every morning. I can water the plants in the garden. I can wash the dishes after dinner. My mom says I am a good helper. Helping at home makes me feel happy and proud. I want to help more every day.' }
+        ];
+
+        const MIDDLE_ARTICLES = [
+            { title: 'My Cat', text: 'I have a lovely pet cat named Fluffy. She has beautiful white fur that feels incredibly soft when I touch it. Every morning, Fluffy waits by her bowl for fresh milk, and she makes a happy purring sound when I pet her gently. She loves to find sunny spots in our living room where she can nap peacefully for hours. Sometimes she chases her own tail or plays with small balls of yarn. My cat brings so much joy to our family with her cute antics and sweet personality.' },
+            { title: 'My Bedroom', text: 'This is my cozy bedroom where I spend most of my free time. It is not very large, but I have decorated it nicely with my favorite things. My comfortable red bed sits against the wall, covered with soft blankets and fluffy pillows. Near the window, there is a wooden desk where I do my homework every evening. I keep all my storybooks organized on a tall shelf in the corner. A big yellow lamp on my desk provides warm light for reading before bedtime. I truly love my personal space very much.' },
+            { title: 'A Nice Day', text: 'Today has been such a wonderful and pleasant day from start to finish. When I woke up this morning, I saw that the sky was a brilliant blue without any clouds. The bright sun shone warmly through my window, making everything look cheerful and inviting. After breakfast, my mother and I decided to visit the nearby park together. We walked along the winding paths and saw many colorful birds singing in the trees. The green leaves rustled gently in the soft breeze. It was truly a happy and memorable day.' },
+            { title: 'My Teacher', text: 'My English teacher is Mrs. Green, and she is absolutely wonderful in every way. She always greets us with a warm smile and treats everyone with kindness and respect. Her smart and creative teaching methods make every lesson interesting and engaging. Every afternoon, she reads us fascinating stories from different countries around the world. Her classroom is always filled with laughter and excitement. I have learned so much from her, and I feel very lucky to have such an amazing teacher.' },
+            { title: 'A Happy Family', text: 'I am blessed to have such a loving and happy family. My father is tall and strong, and he always makes us laugh with his funny jokes. My mother is beautiful both inside and out, and she cooks the most delicious meals for us. I also have a little brother who looks up to me and follows me everywhere. We enjoy playing board games together in the living room every weekend. Our home is always filled with love, laughter, and warm memories that I will treasure forever.' },
+            { title: 'At the Zoo', text: 'Last Sunday was an exciting day because my whole family visited the city zoo together. We arrived early in the morning when the animals were most active and playful. The enormous elephants impressed us with their size and gentle movements. The clever monkeys swung from branch to branch, making funny faces at the visitors. We watched the adorable pandas munching on fresh bamboo stalks with great enjoyment. I took many photographs to remember this special family outing.' },
+            { title: 'My School Bag', text: 'My blue school bag is one of my most important possessions for school. It has multiple pockets and compartments that help me stay organized throughout the day. I carefully place all my textbooks and notebooks in the main section. My pencil case filled with colorful pens and pencils goes in the front pocket for easy access. On the side, there is a special holder for my water bottle. This bag has been with me for two years and still looks great.' },
+            { title: 'Fruits I Like', text: 'Eating fresh fruits is one of my favorite healthy habits every single day. My absolute favorite fruit is the crisp red apple that grows in our local orchards. Apples are not only sweet and juicy but also packed with important vitamins. I also enjoy ripe yellow bananas that give me energy for sports activities. Fresh oranges are another favorite because they are refreshing and full of vitamin C. Doctors always say that fruits are essential for growing children.' },
+            { title: 'My Best Friend', text: 'Tom has been my best friend since we first met in kindergarten many years ago. We are fortunate to be in the same class where we can help each other with schoolwork. During lunch breaks, we always sit together and share stories about our families and hobbies. After school ends, we often play soccer on the field near our neighborhood. Tom has a wonderful sense of humor and a kind heart that makes everyone like him. I feel truly grateful to have such a loyal and caring friend.' },
+            { title: 'A Rainy Day', text: 'Rainy days have a special charm that makes me feel peaceful and relaxed inside. When the rain starts falling, I enjoy staying indoors with a warm blanket and good books. My mother usually prepares hot vegetable soup that tastes perfect on cold wet days. Sometimes we bake cookies together while listening to the raindrops on our roof. The gentle sound of rainfall helps me focus when I am reading or drawing. I find rainy days surprisingly comforting and enjoyable.' },
+            { title: 'My Hobbies', text: 'Having various hobbies makes my life more colorful and interesting every day. I absolutely love drawing pictures of animals and nature scenes with my colored pencils. Riding my bicycle around the neighborhood gives me a sense of freedom and adventure. On weekends, I often play fetch with my energetic dog in the backyard. Among all my hobbies, drawing remains my absolute favorite creative activity. When I grow up, I dream of becoming a professional artist.' },
+            { title: 'A Trip to the Beach', text: 'Our family vacation to the beach last summer created memories I will never forget. The sand felt incredibly soft and white between my toes as I walked along the shore. The ocean water was cool and blue, inviting us to splash and swim for hours. I spent the afternoon building an enormous sandcastle with towers and a moat. My parents bought us delicious ice cream from a nearby shop. Everyone agreed it was the most fun day of our entire summer vacation.' },
+            { title: 'My Mom', text: 'My mother is truly the most wonderful person in my entire life. She wakes up early every morning to prepare nutritious and delicious breakfast for our family. At bedtime, she reads me enchanting stories that transport me to magical worlds. Her sweet singing voice comforts me whenever I feel sad or worried about something. She gives the best hugs that make all my problems disappear instantly. I love my mom more than words can ever express.' },
+            { title: 'A Snowy Day', text: 'Waking up to find everything covered in snow feels like entering a winter wonderland. The entire world looks clean and white, transforming ordinary streets into beautiful landscapes. I quickly put on my warmest coat, gloves, and boots before running outside. My friends and I work together to build a snowman with a carrot nose and button eyes. Later, we have exciting snowball fights until our fingers get cold. Playing in the snow brings pure joy to my heart.' },
+            { title: 'At the Supermarket', text: 'Grocery shopping with my father has become our special weekend tradition together. We make a list of items we need, including fresh milk and whole grain bread for the week. I enjoy selecting the ripest apples and juiciest oranges from the produce section. The supermarket is always clean, bright, and organized with wide aisles. My dad teaches me how to compare prices and choose quality products. These shopping trips are precious bonding time with my dad.' },
+            { title: 'My Grandpa', text: 'My grandfather lives on a peaceful farm in the beautiful countryside far from the city. His property includes vast fields where he grows organic vegetables and sweet fruits. Grandpa loves sharing fascinating stories about his childhood and historical events. Every summer vacation, I visit him to help with farm work and learn new skills. He patiently teaches me how to plant seeds and care for animals. My grandpa holds a very special place in my heart.' },
+            { title: 'A Birthday Party', text: 'Yesterday marked my tenth birthday, and my parents organized an amazing celebration at home. They decorated the living room with colorful balloons and a big banner with my name. All my closest friends arrived with thoughtful gifts and big smiles on their faces. We played entertaining games like musical chairs and pin the tail on the donkey. The chocolate cake was absolutely delicious with creamy frosting. It was undoubtedly the most wonderful birthday celebration ever.' },
+            { title: 'My Favorite Color', text: 'Blue has always been my favorite color for as many reasons as the sky has clouds. Looking up at the clear blue sky fills me with hope and endless possibilities. The deep blue ocean represents mystery and adventure in distant lands. Most of my clothes are various shades of blue, from navy to sky blue. Even my bedroom walls are painted a calming light blue. This beautiful color brings me peace and happiness every day.' },
+            { title: 'Learning English', text: 'Studying English at school has opened up an entirely new world for me. The language is both challenging and fun, with interesting grammar rules and vocabulary. I can now confidently greet people and introduce myself in English. Counting numbers and telling time has become second nature to me. I especially enjoy singing popular English songs with my classmates. Learning this global language will help me connect with people worldwide.' },
+            { title: 'A Day in My Life', text: 'My typical day follows a routine that keeps me productive and happy. I wake up at seven oclock when my alarm clock rings loudly. After washing up, I join my family for a nutritious breakfast together. School hours are filled with interesting lessons and fun activities with friends. Once home, I complete my homework before dinner time. The evening is reserved for relaxation and preparing for the next day.' },
+            { title: 'The Power of Reading', text: 'Reading is a magical activity that opens doors to countless new worlds and possibilities. When we immerse ourselves in a good book, our minds expand and our imagination soars to new heights. Through the pages of books, we can travel to distant countries and experience different cultures without ever leaving our comfortable homes. A truly great book has the power to change our perspective and transform the way we think about life. Reading inspires us to dream bigger and work harder to achieve our goals.' },
+            { title: 'The Importance of Friendship', text: 'True friendship represents one of the most valuable treasures that life has to offer us. A genuine friend remains by your side during difficult times and celebrates with you during happy moments. They willingly share both your joys and your sorrows without expecting anything in return. Meaningful friendships teach us crucial lessons about trust, loyalty, and mutual respect. These relationships help us grow into better, more compassionate human beings.' },
+            { title: 'My Dream Career', text: 'Since childhood, I have dreamed of becoming a skilled doctor who helps sick people recover their health. The medical profession requires years of dedicated study and practical training. However, the immense reward of saving lives and reducing suffering makes all the hard work worthwhile. I have been focusing intensely on science subjects like biology and chemistry. With determination and persistence, I believe my dream will eventually come true.' },
+            { title: 'Protecting Our Environment', text: 'Our beautiful planet is currently facing numerous serious environmental challenges that threaten all living things. Industrial pollution continues to destroy the quality of our air and water resources. Climate change is causing extreme weather patterns and affecting wildlife populations worldwide. We must take immediate action to reduce our carbon footprint and protect nature. Simple daily steps like recycling materials and reducing waste can make a significant difference.' },
+            { title: 'The Value of Hard Work', text: 'Achieving meaningful success in life never happens without consistent effort and dedication. Hard work serves as the fundamental key to reaching our most ambitious goals and aspirations. When we inevitably face challenges and obstacles, we should never give up or lose hope. Every failure provides a valuable lesson that brings us closer to eventual success. Through experience, I have learned that persistence matters more than natural talent.' },
+            { title: 'The Influence of Technology', text: 'Modern technology has completely transformed the way we live our daily lives in remarkable ways. Smartphones and computers connect us instantly with friends and family across the entire globe. The internet provides access to endless information and educational resources at our fingertips. However, we must recognize that technology also has potential downsides and risks. Excessive screen time can negatively impact our physical health and mental well-being.' },
+            { title: 'My Favorite Holiday', text: 'The Spring Festival stands out as my absolute favorite holiday throughout the entire year. As the most important traditional celebration in Chinese culture, it brings families together from near and far. Relatives gather for elaborate reunion dinners featuring delicious traditional dishes. Children receive red envelopes containing money and wear beautiful new clothes. Spectacular fireworks illuminate the night sky with brilliant colors.' },
+            { title: 'Learning a New Language', text: 'The process of learning a new language presents both significant challenges and rewarding achievements. Mastering a foreign language opens doors to understanding different cultures and customs. When we can speak another language fluently, we communicate effectively with millions more people worldwide. Regular practice and immersion are absolutely essential for developing true language proficiency. The journey requires patience but brings lifelong benefits.' },
+            { title: 'The Beauty of Nature', text: 'Nature serves as the most talented and generous artist in the entire universe. Majestic mountains stand tall with timeless grace and dignity against the sky. Rivers flow continuously with gentle music that soothes the human soul. Flowers bloom in countless colors and varieties throughout the changing seasons. Magnificent sunsets paint the evening sky with breathtaking shades of gold and pink.' },
+            { title: 'My School Life', text: 'My school life is filled with memorable experiences that I will cherish forever. Each day brings opportunities to learn something new and exciting from knowledgeable teachers. My instructors guide me with patience and encourage me to ask questions. My classmates have gradually become close friends who support one another. We collaborate on challenging projects and enjoy recreational activities together.' },
+            { title: 'The Courage to Try', text: 'Many individuals allow fear of failure to prevent them from attempting new experiences. They avoid trying unfamiliar activities because they worry about making mistakes or looking foolish. However, failure represents a natural and necessary part of the learning process. Every expert in any field was once a complete beginner who made numerous errors. We must find the courage to try new things despite our fears.' },
+            { title: 'Healthy Eating Habits', text: 'Maintaining good nutrition is absolutely essential for supporting our overall health and vitality. We should consciously choose to eat more fresh vegetables and fruits every single day. Processed junk food might taste delicious temporarily, but it causes serious harm to our bodies over time. Drinking sufficient water throughout the day keeps our systems functioning properly. Developing healthy eating habits early in life sets the foundation for future wellness.' },
+            { title: 'The Role of Music', text: 'Music functions as a universal language that transcends cultural and linguistic barriers between people. It possesses the unique ability to express complex emotions that ordinary words cannot adequately convey. Uplifting music makes us feel joyful and energized during difficult periods. Melancholy music helps us process and release painful feelings in healthy ways. Learning to play a musical instrument develops discipline and patience.' },
+            { title: 'My Hometown', text: 'My hometown is a small but exceptionally beautiful place nestled in a peaceful valley. The air remains fresh and clean thanks to the surrounding forests and minimal industrial activity. The local residents are genuinely friendly and warmly welcoming to visitors and newcomers. I spent my entire childhood playing happily by the clear river that runs through town. Every street corner and building holds special memories from my youth.' },
+            { title: 'The Importance of Teamwork', text: 'The saying that teamwork makes the dream work contains profound truth about human collaboration. Working together effectively achieves far more than individual effort alone could accomplish. Each team member contributes unique strengths, skills, and perspectives to the group. Open communication serves as the essential key to successful collaboration on any project. Through teamwork experiences, we learn to appreciate and respect others.' },
+            { title: 'Sports and Health', text: 'Engaging in regular physical exercise keeps our bodies healthy and our minds sharp. Sports activities improve both our physical condition and our mental well-being simultaneously. Playing team sports like basketball develops cooperation and communication abilities. Swimming provides excellent full-body exercise that strengthens all major muscle groups. Making sports a consistent part of our daily routine leads to lasting health benefits.' },
+            { title: 'The Magic of Books', text: 'Books serve as magical portals that transport readers to fascinating other worlds and realities. They take us on incredible adventures far beyond the limits of our ordinary imagination. Fictional stories entertain us while also inspiring creativity and original thinking. Non-fiction books educate readers and provide valuable information about countless topics. A single powerful book can completely change our perspective on life.' },
+            { title: 'Dealing with Stress', text: 'Experiencing stress has become an increasingly common problem in our fast-paced modern society. Excessive stress negatively affects both our physical health and our emotional happiness over time. We need to discover healthy and constructive ways to cope with daily pressures. Physical exercise, creative hobbies, and meaningful conversations with friends provide effective relief. Getting adequate sleep each night is also essential for stress management.' },
+            { title: 'The Future of Education', text: 'Education is rapidly evolving and transforming through the integration of advanced technology tools. Online learning platforms now provide students access to knowledge from anywhere in the world. Virtual classrooms connect learners with expert teachers regardless of geographical distance. Artificial intelligence tutors offer increasingly personalized learning experiences tailored to individual needs. These innovations promise to make quality education more accessible globally.' },
+            { title: 'What Makes a Good Leader', text: 'Effective leaders possess the ability to inspire and motivate others toward achieving common goals. They communicate their vision clearly while also listening carefully to team members input. True leaders accept responsibility for both successes and failures of their decisions. They maintain calm composure even when facing intense pressure and unexpected challenges. Most importantly, excellent leaders trust their team members and empower them to grow.' }
+        ];
+
+        const HIGH_ARTICLES = [
+            { title: 'The Paradox of Choice', text: 'In contemporary society, we are confronted with an unprecedented abundance of choices in nearly every aspect of our daily lives. From selecting career paths to purchasing consumer goods, the available options often seem virtually limitless and overwhelming. Yet paradoxically, this proliferation of choices frequently leads to decision paralysis and deep dissatisfaction rather than happiness. Psychological research suggests that having too many options can actually reduce our overall satisfaction with whatever we ultimately choose.' },
+            { title: 'The Intersection of Art and Science', text: 'Throughout human history, art and science have traditionally been perceived as fundamentally distinct and separate intellectual domains. However, increasingly we recognize that these seemingly disparate fields actually share profound commonalities and interconnected relationships. Both artistic creation and scientific discovery are fundamentally driven by human curiosity and the deep desire to understand reality. The most innovative breakthroughs often occur precisely at the boundaries where these disciplines meet and influence each other.' },
+            { title: 'The Ethics of Artificial Intelligence', text: 'As artificial intelligence systems become increasingly sophisticated and autonomous, humanity faces unprecedented ethical challenges that demand careful consideration. AI algorithms now make consequential decisions affecting millions of human lives in areas like healthcare and criminal justice. Yet these complex systems often operate as opaque black boxes whose decision-making processes remain mysterious even to their creators. When AI systems inevitably err, determining who bears moral and legal responsibility becomes profoundly difficult.' },
+            { title: 'The Philosophy of Impermanence', text: 'The concept of impermanence, central to Buddhist philosophical traditions, offers profound insights into the fundamental nature of the human condition. Everything in existence, from physical matter to emotional states, remains subject to constant change and transformation. Yet humans instinctively resist this fundamental reality, clinging desperately to stability and permanence. Understanding and accepting impermanence can paradoxically lead to greater peace and reduced suffering.' },
+            { title: 'The Evolution of Human Consciousness', text: 'Human consciousness remains one of the greatest unsolved mysteries in all of scientific inquiry. How exactly does subjective experience arise from objective physical processes in the brain? This hard problem of consciousness has perplexed philosophers and neuroscientists alike for centuries. Recent advances in brain imaging and artificial intelligence have renewed interest in understanding the neural correlates of conscious experience.' },
+            { title: 'The Global Village', text: 'Globalization has fundamentally transformed our world into an interconnected village where events in one region instantly affect distant populations. Information now travels instantaneously across continents through digital networks and social media platforms. Cultural exchange has never been more vibrant or accessible to ordinary people worldwide. Yet this unprecedented interconnectedness also brings significant challenges including pandemics and economic instability.' },
+            { title: 'The Psychology of Happiness', text: 'Happiness has been studied extensively by psychologists and neuroscientists seeking to understand what truly brings human flourishing. Research consistently reveals that material wealth contributes far less to lasting happiness than commonly believed by most people. Strong social connections and meaningful relationships prove far more important for subjective well-being. Factors like gratitude, purpose, and community belonging often outweigh income in predicting happiness.' },
+            { title: 'The Climate Crisis', text: 'Climate change represents the defining existential challenge of our generation with consequences that will shape human civilization for centuries. Rising global temperatures threaten ecosystems worldwide and endanger countless species with extinction. Extreme weather events including hurricanes and droughts become increasingly frequent and devastating. Yet addressing this crisis effectively requires unprecedented levels of global cooperation and political will.' },
+            { title: 'The Art of Critical Thinking', text: 'Critical thinking stands as perhaps the most valuable intellectual skill in our current information age characterized by data overload. We are constantly bombarded with information through various media channels, much of it deliberately misleading or demonstrably false. The ability to analyze arguments logically and evaluate evidence objectively has become absolutely crucial for informed citizenship. Educational systems must prioritize teaching these skills from an early age.' },
+            { title: 'The Future of Work', text: 'Automation and artificial intelligence technologies are rapidly reshaping the fundamental nature of work across all industries and sectors. Many traditional jobs that employed millions will inevitably disappear within coming decades. Meanwhile entirely new professions that we cannot yet imagine will emerge to replace them. Adaptability and commitment to lifelong learning become essential survival skills for navigating this transition.' },
+            { title: 'The Power of Silence', text: 'In our hyperconnected modern world filled with constant digital notifications, silence has become an increasingly rare and precious commodity. Yet silence holds profound psychological and spiritual benefits that many have forgotten how to appreciate. Quiet moments allow for deep reflection and creative thinking unencumbered by external stimulation. History shows that many great ideas and breakthroughs emerged from periods of quiet contemplation.' },
+            { title: 'The Philosophy of Education', text: 'What exactly constitutes the true fundamental purpose of education in a rapidly changing society? Is the primary goal to prepare students for specific careers and economic productivity? Or should education focus on developing well-rounded human beings capable of critical thought and ethical reasoning? The most profound educators throughout history have viewed education as the holistic cultivation of the whole person.' },
+            { title: 'The Science of Sleep', text: 'Sleep represents far more than merely the absence of wakefulness or conscious awareness. It constitutes an active biological process absolutely essential for maintaining both physical health and mental functioning. During various stages of sleep, our brains actively consolidate memories and repair damaged tissues throughout the body. Chronic sleep deprivation has been linked to numerous serious health conditions including obesity and depression.' },
+            { title: 'The Ethics of Climate Change', text: 'Climate change raises profound ethical questions about justice and responsibility across generations and national boundaries. Those who contributed least to historical greenhouse gas emissions often suffer disproportionately from climate impacts. Future generations who had no role in creating this crisis will bear severe consequences of present actions and inaction. These ethical dimensions complicate international negotiations and policy responses.' },
+            { title: 'The Art of Living Alone', text: 'Solitude remains widely misunderstood and feared in contemporary society obsessed with social connection. Many people dread being alone, immediately equating solitude with loneliness and social failure. Yet chosen solitude can be profoundly creative, restorative, and necessary for psychological health. History demonstrates that great thinkers and artists have often sought extended periods of isolation.' },
+            { title: 'The Digital Dilemma', text: 'Digital technology presents humanity with a profound and complex dilemma without easy solutions. These tools connect us globally while simultaneously isolating us physically from immediate communities. Social media platforms offer unprecedented connection but often breed unhealthy social comparison and anxiety. Information has become abundant and freely available while human attention remains scarce and fragmented.' },
+            { title: 'The Economics of Inequality', text: 'Economic inequality has reached historically unprecedented levels in many countries around the world. The gap between rich and poor continues widening at an accelerating pace with troubling social implications. This growing disparity affects access to healthcare, quality education, and political power. Economists debate whether such inequality ultimately benefits or harms overall economic growth.' },
+            { title: 'The Spirit of Adventure', text: 'The human spirit of adventure has fundamentally driven progress throughout our species history. From exploring distant unknown lands to pioneering scientific frontiers, this innate curiosity has shaped civilization. The greatest rewards in life often come to those willing to venture beyond their comfort zones. Risk-taking and exploration expand both individual horizons and collective human knowledge.' },
+            { title: 'The Meaning of Success', text: 'Success is commonly measured by external markers like accumulated wealth and social status. Yet many individuals achieve these conventional markers while feeling profoundly unfulfilled and empty inside. True success encompasses far more than material accomplishments and public recognition. Meaningful relationships, continuous personal growth, and contributing positively to others lives matter more deeply.' },
+            { title: 'The Legacy We Leave', text: 'Each generation inherits both benefits and burdens from those who came before while shaping conditions for those who follow. What kind of legacy will our particular generation ultimately leave for future inhabitants of this planet? Will we be remembered primarily for technological innovation or for environmental exploitation? The choices we collectively make today will echo through time affecting countless lives.' }
+        ];
+
+        const READING_PRACTICE = { primary: PRIMARY_ARTICLES, middle: MIDDLE_ARTICLES, high: HIGH_ARTICLES };
+
+        // ==================== 词汇数据库 ====================
+        // 格式：{ word, pos(词性), meaning(中文) }
+        // pos: n=名词 v=动词 adj=形容词 adv=副词 phrase=短语
+        const VOCAB_DB = {
+            primary: [
+                // My Dog
+                [{ word:'feed', pos:'v', meaning:'喂食；喂养' }, { word:'yard', pos:'n', meaning:'院子；庭院' }, { word:'barks', pos:'v', meaning:'吠叫；狗叫' }],
+                // My Family
+                [{ word:'family', pos:'n', meaning:'家庭；家人' }, { word:'dad', pos:'n', meaning:'爸爸；父亲' }, { word:'happy', pos:'adj', meaning:'快乐的；幸福的' }],
+                // My School
+                [{ word:'classes', pos:'n', meaning:'课；班级' }, { word:'kind', pos:'adj', meaning:'友善的；和蔼的' }, { word:'friend', pos:'n', meaning:'朋友；好友' }],
+                // My Room
+                [{ word:'clean', pos:'adj', meaning:'干净的；整洁的' }, { word:'shelf', pos:'n', meaning:'书架；架子' }, { word:'tidy', pos:'adj', meaning:'整洁的；有条理的' }],
+                // I Like Fruit
+                [{ word:'sweet', pos:'adj', meaning:'甜的；甜蜜的' }, { word:'juice', pos:'n', meaning:'果汁；汁液' }, { word:'health', pos:'n', meaning:'健康；身体状况' }],
+                // The Weather
+                [{ word:'sunny', pos:'adj', meaning:'晴朗的；阳光充足的' }, { word:'warm', pos:'adj', meaning:'温暖的；暖和的' }, { word:'outside', pos:'adv', meaning:'在外面；户外' }],
+                // My Morning
+                [{ word:'breakfast', pos:'n', meaning:'早餐；早饭' }, { word:'brush', pos:'v', meaning:'刷；梳' }, { word:'late', pos:'adj', meaning:'迟到的；晚的' }],
+                // Colors
+                [{ word:'color', pos:'n', meaning:'颜色；色彩' }, { word:'favorite', pos:'adj', meaning:'最喜欢的；最爱的' }, { word:'grass', pos:'n', meaning:'草；草地' }],
+                // My Toys
+                [{ word:'toy', pos:'n', meaning:'玩具' }, { word:'play', pos:'v', meaning:'玩耍；游戏' }, { word:'sister', pos:'n', meaning:'姐妹；妹妹' }],
+                // Animals I Like
+                [{ word:'friendly', pos:'adj', meaning:'友好的；亲切的' }, { word:'quiet', pos:'adj', meaning:'安静的；平静的' }, { word:'pet', pos:'n', meaning:'宠物；家养动物' }],
+                // My Lunch
+                [{ word:'tasty', pos:'adj', meaning:'好吃的；美味的' }, { word:'table', pos:'n', meaning:'桌子；餐桌' }, { word:'lunchtime', pos:'n', meaning:'午餐时间' }],
+                // A Walk in the Park
+                [{ word:'path', pos:'n', meaning:'小路；路径' }, { word:'pond', pos:'n', meaning:'池塘；水塘' }, { word:'afternoon', pos:'n', meaning:'下午；午后' }],
+                // My Favorite Food
+                [{ word:'noodles', pos:'n', meaning:'面条' }, { word:'soft', pos:'adj', meaning:'软的；柔软的' }, { word:'weekends', pos:'n', meaning:'周末' }],
+                // Going to the Store
+                [{ word:'store', pos:'n', meaning:'商店；店铺' }, { word:'carry', pos:'v', meaning:'携带；拿' }, { word:'bought', pos:'v', meaning:'买；购买（buy的过去式）' }],
+                // My Classmates
+                [{ word:'funny', pos:'adj', meaning:'有趣的；好笑的' }, { word:'drawing', pos:'n', meaning:'画画；绘画' }, { word:'next', pos:'adv', meaning:'紧邻；旁边' }],
+                // Bedtime
+                [{ word:'pajamas', pos:'n', meaning:'睡衣' }, { word:'story', pos:'n', meaning:'故事；小说' }, { word:'adventures', pos:'n', meaning:'冒险；探险' }],
+                // My Pencil Case
+                [{ word:'ruler', pos:'n', meaning:'尺子；直尺' }, { word:'eraser', pos:'n', meaning:'橡皮擦' }, { word:'useful', pos:'adj', meaning:'有用的；实用的' }],
+                // Seasons
+                [{ word:'bloom', pos:'v', meaning:'开花；盛开' }, { word:'autumn', pos:'n', meaning:'秋天；秋季' }, { word:'seasons', pos:'n', meaning:'季节；时节' }],
+                // My Weekend
+                [{ word:'homework', pos:'n', meaning:'家庭作业；功课' }, { word:'mall', pos:'n', meaning:'购物中心；商场' }, { word:'evening', pos:'n', meaning:'傍晚；晚上' }],
+                // I Can Help
+                [{ word:'water', pos:'v', meaning:'浇水；灌溉' }, { word:'dishes', pos:'n', meaning:'碗碟；餐具' }, { word:'proud', pos:'adj', meaning:'自豪的；骄傲的' }],
+            ],
+            middle: [
+                // My Cat (原小学第1篇)
+                [{ word:'purring', pos:'v', meaning:'发出呼噜声' }, { word:'incredibly', pos:'adv', meaning:'难以置信地；极其' }, { word:'antics', pos:'n', meaning:'滑稽动作；怪癖' }, { word:'gently', pos:'adv', meaning:'轻柔地；温和地' }, { word:'peacefully', pos:'adv', meaning:'平静地；安详地' }],
+                // My Bedroom
+                [{ word:'cozy', pos:'adj', meaning:'温馨舒适的' }, { word:'decorated', pos:'v', meaning:'装饰；布置' }, { word:'organized', pos:'adj', meaning:'整齐有序的' }, { word:'comfortable', pos:'adj', meaning:'舒适的；令人放松的' }, { word:'provides', pos:'v', meaning:'提供；供给' }],
+                // A Nice Day
+                [{ word:'brilliant', pos:'adj', meaning:'明亮的；灿烂的' }, { word:'cheerful', pos:'adj', meaning:'欢快的；令人愉快的' }, { word:'rustled', pos:'v', meaning:'（树叶）沙沙作响' }, { word:'winding', pos:'adj', meaning:'蜿蜒的；曲折的' }, { word:'memorable', pos:'adj', meaning:'难忘的；值得纪念的' }],
+                // My Teacher
+                [{ word:'engaging', pos:'adj', meaning:'引人入胜的；有趣的' }, { word:'fascinating', pos:'adj', meaning:'迷人的；极有趣的' }, { word:'creative', pos:'adj', meaning:'有创意的；创造性的' }, { word:'kindness', pos:'n', meaning:'善意；仁慈' }],
+                // A Happy Family
+                [{ word:'blessed', pos:'adj', meaning:'幸运的；有福气的' }, { word:'treasure', pos:'v', meaning:'珍视；珍藏' }, { word:'loving', pos:'adj', meaning:'充满爱的；深情的' }, { word:'laughter', pos:'n', meaning:'笑声；欢笑' }, { word:'memories', pos:'n', meaning:'记忆；回忆' }],
+                // At the Zoo
+                [{ word:'enormous', pos:'adj', meaning:'巨大的；庞大的' }, { word:'adorable', pos:'adj', meaning:'可爱的；讨人喜欢的' }, { word:'munching', pos:'v', meaning:'大声咀嚼；津津有味地吃' }, { word:'impressed', pos:'v', meaning:'使印象深刻；打动' }, { word:'photographs', pos:'n', meaning:'照片；相片' }],
+                // My School Bag
+                [{ word:'compartments', pos:'n', meaning:'隔层；分格' }, { word:'possessions', pos:'n', meaning:'所有物；财产' }, { word:'access', pos:'n', meaning:'取用；进入' }, { word:'organized', pos:'adj', meaning:'整齐有序的' }, { word:'throughout', pos:'adv', meaning:'贯穿；自始至终' }],
+                // Fruits I Like
+                [{ word:'crisp', pos:'adj', meaning:'脆的；清脆的' }, { word:'orchards', pos:'n', meaning:'果园' }, { word:'essential', pos:'adj', meaning:'必不可少的；基本的' }, { word:'refreshing', pos:'adj', meaning:'清爽的；提神的' }, { word:'vitamins', pos:'n', meaning:'维生素' }],
+                // My Best Friend
+                [{ word:'fortunate', pos:'adj', meaning:'幸运的' }, { word:'loyal', pos:'adj', meaning:'忠诚的；忠实的' }, { word:'grateful', pos:'adj', meaning:'感激的；感谢的' }, { word:'humor', pos:'n', meaning:'幽默；幽默感' }, { word:'caring', pos:'adj', meaning:'体贴的；关心他人的' }],
+                // A Rainy Day
+                [{ word:'charm', pos:'n', meaning:'魅力；吸引力' }, { word:'comforting', pos:'adj', meaning:'令人安慰的；舒心的' }, { word:'surprisingly', pos:'adv', meaning:'出乎意料地；令人惊讶地' }, { word:'peaceful', pos:'adj', meaning:'平静的；宁静的' }, { word:'relaxed', pos:'adj', meaning:'放松的；轻松的' }],
+                // My Hobbies
+                [{ word:'colorful', pos:'adj', meaning:'丰富多彩的；色彩鲜艳的' }, { word:'adventure', pos:'n', meaning:'冒险；探险' }, { word:'professional', pos:'adj', meaning:'专业的；职业的' }, { word:'energetic', pos:'adj', meaning:'精力充沛的；充满活力的' }, { word:'creative', pos:'adj', meaning:'有创意的；创造性的' }],
+                // A Trip to the Beach
+                [{ word:'inviting', pos:'adj', meaning:'吸引人的；诱人的' }, { word:'enormous', pos:'adj', meaning:'巨大的' }, { word:'incredibly', pos:'adv', meaning:'难以置信地；极其' }, { word:'vacation', pos:'n', meaning:'假期；度假' }, { word:'delicious', pos:'adj', meaning:'美味的；可口的' }],
+                // My Mom
+                [{ word:'enchanting', pos:'adj', meaning:'迷人的；令人陶醉的' }, { word:'nutritious', pos:'adj', meaning:'有营养的；滋补的' }, { word:'comforts', pos:'v', meaning:'安慰；使舒适' }, { word:'instantly', pos:'adv', meaning:'立刻；马上' }, { word:'transport', pos:'v', meaning:'带到；使进入（某种状态）' }],
+                // A Snowy Day
+                [{ word:'wonderland', pos:'n', meaning:'仙境；奇境' }, { word:'transforming', pos:'v', meaning:'使变形；改变' }, { word:'landscapes', pos:'n', meaning:'风景；景色' }, { word:'ordinary', pos:'adj', meaning:'普通的；平常的' }, { word:'exciting', pos:'adj', meaning:'令人兴奋的；刺激的' }],
+                // At the Supermarket
+                [{ word:'tradition', pos:'n', meaning:'传统；惯例' }, { word:'produce', pos:'n', meaning:'农产品；新鲜食品' }, { word:'bonding', pos:'n', meaning:'情感联系；增进感情' }, { word:'quality', pos:'n', meaning:'质量；品质' }],
+                // My Grandpa
+                [{ word:'organic', pos:'adj', meaning:'有机的；天然的' }, { word:'patiently', pos:'adv', meaning:'耐心地' }, { word:'fascinating', pos:'adj', meaning:'迷人的；极有趣的' }, { word:'peaceful', pos:'adj', meaning:'平静的；宁静的' }, { word:'property', pos:'n', meaning:'财产；房产；土地' }],
+                // A Birthday Party
+                [{ word:'organized', pos:'v', meaning:'组织；筹办' }, { word:'thoughtful', pos:'adj', meaning:'体贴的；考虑周到的' }, { word:'undoubtedly', pos:'adv', meaning:'毫无疑问地' }, { word:'entertaining', pos:'adj', meaning:'有趣的；令人愉快的' }, { word:'celebration', pos:'n', meaning:'庆祝；庆典' }],
+                // My Favorite Color
+                [{ word:'possibilities', pos:'n', meaning:'可能性；机会' }, { word:'represents', pos:'v', meaning:'代表；象征' }, { word:'calming', pos:'adj', meaning:'使人平静的；镇定的' }, { word:'mystery', pos:'n', meaning:'神秘；谜' }, { word:'happiness', pos:'n', meaning:'幸福；快乐' }],
+                // Learning English
+                [{ word:'confidently', pos:'adv', meaning:'自信地' }, { word:'second nature', pos:'phrase', meaning:'第二天性；习以为常' }, { word:'global', pos:'adj', meaning:'全球的；世界性的' }, { word:'challenging', pos:'adj', meaning:'有挑战性的；困难的' }, { word:'connect', pos:'v', meaning:'联系；沟通' }],
+                // A Day in My Life
+                [{ word:'routine', pos:'n', meaning:'日常程序；惯例' }, { word:'productive', pos:'adj', meaning:'富有成效的；高效的' }, { word:'reserved', pos:'v', meaning:'留出；预留' }, { word:'nutritious', pos:'adj', meaning:'有营养的；滋补的' }, { word:'relaxation', pos:'n', meaning:'放松；休息' }],
+                // The Power of Reading
+                [{ word:'immerse', pos:'v', meaning:'沉浸；使专注于' }, { word:'perspective', pos:'n', meaning:'观点；看法；视角' }, { word:'transform', pos:'v', meaning:'改变；使转变' }, { word:'imagination', pos:'n', meaning:'想象力；想象' }, { word:'inspires', pos:'v', meaning:'激励；启发' }, { word:'countless', pos:'adj', meaning:'无数的；数不清的' }],
+                // The Importance of Friendship
+                [{ word:'genuine', pos:'adj', meaning:'真诚的；真实的' }, { word:'compassionate', pos:'adj', meaning:'有同情心的；富有怜悯的' }, { word:'mutual', pos:'adj', meaning:'相互的；共同的' }, { word:'loyalty', pos:'n', meaning:'忠诚；忠实' }, { word:'treasures', pos:'v', meaning:'珍视；珍爱' }, { word:'sorrows', pos:'n', meaning:'悲伤；忧愁' }],
+                // My Dream Career
+                [{ word:'dedicated', pos:'adj', meaning:'专注的；投入的' }, { word:'immense', pos:'adj', meaning:'巨大的；极大的' }, { word:'persistence', pos:'n', meaning:'坚持；毅力' }, { word:'determination', pos:'n', meaning:'决心；坚定' }, { word:'worthwhile', pos:'adj', meaning:'值得的；有价值的' }],
+                // Protecting Our Environment
+                [{ word:'numerous', pos:'adj', meaning:'众多的；许多的' }, { word:'carbon footprint', pos:'phrase', meaning:'碳足迹' }, { word:'immediate', pos:'adj', meaning:'立即的；紧迫的' }, { word:'pollution', pos:'n', meaning:'污染；污染物' }, { word:'significant', pos:'adj', meaning:'重要的；显著的' }, { word:'recycling', pos:'v', meaning:'回收利用；循环再用' }],
+                // The Value of Hard Work
+                [{ word:'fundamental', pos:'adj', meaning:'基本的；根本的' }, { word:'aspirations', pos:'n', meaning:'抱负；志向' }, { word:'obstacles', pos:'n', meaning:'障碍；阻碍' }, { word:'consistent', pos:'adj', meaning:'持续的；一贯的' }, { word:'eventual', pos:'adj', meaning:'最终的；结果的' }],
+                // The Influence of Technology
+                [{ word:'transformed', pos:'v', meaning:'彻底改变；使转变' }, { word:'excessive', pos:'adj', meaning:'过度的；过分的' }, { word:'potential', pos:'adj', meaning:'潜在的；可能的' }, { word:'negatively', pos:'adv', meaning:'消极地；负面地' }, { word:'instantly', pos:'adv', meaning:'即时地；立刻' }, { word:'downsides', pos:'n', meaning:'缺点；不利方面' }],
+                // My Favorite Holiday
+                [{ word:'elaborate', pos:'adj', meaning:'精心准备的；复杂的' }, { word:'reunion', pos:'n', meaning:'团聚；重聚' }, { word:'spectacular', pos:'adj', meaning:'壮观的；引人注目的' }, { word:'traditional', pos:'adj', meaning:'传统的；习俗的' }, { word:'illuminate', pos:'v', meaning:'照亮；使明亮' }],
+                // Learning a New Language
+                [{ word:'fluently', pos:'adv', meaning:'流利地；流畅地' }, { word:'proficiency', pos:'n', meaning:'熟练；精通' }, { word:'immersion', pos:'n', meaning:'沉浸；全身心投入' }, { word:'effectively', pos:'adv', meaning:'有效地；切实地' }, { word:'patience', pos:'n', meaning:'耐心；忍耐' }, { word:'rewarding', pos:'adj', meaning:'有回报的；值得的' }],
+                // The Beauty of Nature
+                [{ word:'majestic', pos:'adj', meaning:'雄伟的；壮丽的' }, { word:'timeless', pos:'adj', meaning:'永恒的；不受时间影响的' }, { word:'breathtaking', pos:'adj', meaning:'令人叹为观止的' }, { word:'soothes', pos:'v', meaning:'抚慰；使平静' }, { word:'countless', pos:'adj', meaning:'无数的；数不清的' }, { word:'magnificent', pos:'adj', meaning:'壮丽的；宏伟的' }],
+                // My School Life
+                [{ word:'cherish', pos:'v', meaning:'珍视；珍爱' }, { word:'collaborate', pos:'v', meaning:'合作；协作' }, { word:'recreational', pos:'adj', meaning:'娱乐的；消遣的' }, { word:'knowledgeable', pos:'adj', meaning:'知识渊博的' }, { word:'gradually', pos:'adv', meaning:'逐渐地；慢慢地' }],
+                // The Courage to Try
+                [{ word:'unfamiliar', pos:'adj', meaning:'不熟悉的；陌生的' }, { word:'attempting', pos:'v', meaning:'尝试；试图' }, { word:'numerous', pos:'adj', meaning:'众多的；许多的' }, { word:'failure', pos:'n', meaning:'失败；不成功' }, { word:'despite', pos:'phrase', meaning:'尽管；不管' }, { word:'expert', pos:'n', meaning:'专家；行家' }],
+                // Healthy Eating Habits
+                [{ word:'consciously', pos:'adv', meaning:'有意识地；自觉地' }, { word:'processed', pos:'adj', meaning:'加工的；经过处理的' }, { word:'foundation', pos:'n', meaning:'基础；根基' }, { word:'nutrition', pos:'n', meaning:'营养；营养学' }, { word:'sufficient', pos:'adj', meaning:'足够的；充分的' }, { word:'vitality', pos:'n', meaning:'活力；生命力' }],
+                // The Role of Music
+                [{ word:'universal', pos:'adj', meaning:'普遍的；通用的' }, { word:'transcends', pos:'v', meaning:'超越；超出' }, { word:'melancholy', pos:'adj', meaning:'忧郁的；悲伤的' }, { word:'barriers', pos:'n', meaning:'障碍；壁垒' }, { word:'discipline', pos:'n', meaning:'纪律；自律' }, { word:'uplifting', pos:'adj', meaning:'令人振奋的；鼓舞人心的' }],
+                // My Hometown
+                [{ word:'nestled', pos:'v', meaning:'坐落于；依偎' }, { word:'minimal', pos:'adj', meaning:'最少的；极小的' }, { word:'residents', pos:'n', meaning:'居民；住户' }, { word:'genuinely', pos:'adv', meaning:'真诚地；真实地' }, { word:'exceptionally', pos:'adv', meaning:'异常地；格外地' }],
+                // The Importance of Teamwork
+                [{ word:'collaboration', pos:'n', meaning:'合作；协作' }, { word:'accomplish', pos:'v', meaning:'完成；实现' }, { word:'perspectives', pos:'n', meaning:'观点；视角' }, { word:'profound', pos:'adj', meaning:'深刻的；意义深远的' }, { word:'appreciate', pos:'v', meaning:'欣赏；感激' }, { word:'essential', pos:'adj', meaning:'必不可少的；关键的' }],
+                // Sports and Health
+                [{ word:'simultaneously', pos:'adv', meaning:'同时地；一起' }, { word:'consistent', pos:'adj', meaning:'持续的；一贯的' }, { word:'strengthens', pos:'v', meaning:'增强；加强' }, { word:'cooperation', pos:'n', meaning:'合作；协作' }, { word:'routine', pos:'n', meaning:'日常习惯；惯例' }],
+                // The Magic of Books
+                [{ word:'portals', pos:'n', meaning:'入口；门户' }, { word:'fictional', pos:'adj', meaning:'虚构的；小说的' }, { word:'perspective', pos:'n', meaning:'观点；看法' }, { word:'entertain', pos:'v', meaning:'娱乐；使快乐' }, { word:'creativity', pos:'n', meaning:'创造力；创意' }, { word:'fascinating', pos:'adj', meaning:'迷人的；极有趣的' }],
+                // Dealing with Stress
+                [{ word:'excessive', pos:'adj', meaning:'过度的；过分的' }, { word:'constructive', pos:'adj', meaning:'建设性的；有益的' }, { word:'adequate', pos:'adj', meaning:'足够的；充分的' }, { word:'negatively', pos:'adv', meaning:'消极地；负面地' }, { word:'pressures', pos:'n', meaning:'压力；压迫' }, { word:'relief', pos:'n', meaning:'缓解；减轻；宽慰' }],
+                // The Future of Education
+                [{ word:'evolving', pos:'v', meaning:'不断发展；演变' }, { word:'integration', pos:'n', meaning:'整合；融合' }, { word:'personalized', pos:'adj', meaning:'个性化的；定制的' }, { word:'accessible', pos:'adj', meaning:'可获得的；易接触的' }, { word:'innovations', pos:'n', meaning:'创新；革新' }],
+                // What Makes a Good Leader
+                [{ word:'inspire', pos:'v', meaning:'激励；鼓舞' }, { word:'composure', pos:'n', meaning:'镇定；沉着' }, { word:'empower', pos:'v', meaning:'授权；赋能' }, { word:'responsibility', pos:'n', meaning:'责任；职责' }, { word:'vision', pos:'n', meaning:'愿景；远见' }, { word:'motivate', pos:'v', meaning:'激励；促使' }],
+            ],
+            high: [
+                // The Paradox of Choice
+                [{ word:'unprecedented', pos:'adj', meaning:'前所未有的；空前的' }, { word:'paradoxically', pos:'adv', meaning:'矛盾地；似是而非地' }, { word:'proliferation', pos:'n', meaning:'激增；扩散' }, { word:'paralysis', pos:'n', meaning:'瘫痪；无力行动' }, { word:'dissatisfaction', pos:'n', meaning:'不满；不满意' }, { word:'virtually', pos:'adv', meaning:'几乎；实际上' }],
+                // The Intersection of Art and Science
+                [{ word:'disparate', pos:'adj', meaning:'截然不同的；迥异的' }, { word:'commonalities', pos:'n', meaning:'共同点；共性' }, { word:'innovative', pos:'adj', meaning:'创新的；革新的' }, { word:'breakthroughs', pos:'n', meaning:'突破；重大进展' }, { word:'fundamentally', pos:'adv', meaning:'从根本上；基本地' }, { word:'disciplines', pos:'n', meaning:'学科；领域' }],
+                // The Ethics of Artificial Intelligence
+                [{ word:'autonomous', pos:'adj', meaning:'自主的；自治的' }, { word:'consequential', pos:'adj', meaning:'重要的；有重大影响的' }, { word:'opaque', pos:'adj', meaning:'不透明的；晦涩难懂的' }, { word:'sophisticated', pos:'adj', meaning:'复杂的；精密的' }, { word:'moral', pos:'adj', meaning:'道德的；伦理的' }, { word:'inevitably', pos:'adv', meaning:'不可避免地' }],
+                // The Philosophy of Impermanence
+                [{ word:'impermanence', pos:'n', meaning:'无常；短暂' }, { word:'instinctively', pos:'adv', meaning:'本能地；直觉地' }, { word:'paradoxically', pos:'adv', meaning:'矛盾地；出人意料地' }, { word:'clinging', pos:'v', meaning:'紧抓；执着于' }, { word:'profound', pos:'adj', meaning:'深刻的；意义深远的' }, { word:'transformation', pos:'n', meaning:'转变；变化' }],
+                // The Evolution of Human Consciousness
+                [{ word:'subjective', pos:'adj', meaning:'主观的；个人的' }, { word:'correlates', pos:'n', meaning:'相关物；关联因素' }, { word:'perplexed', pos:'v', meaning:'使困惑；使迷惑' }, { word:'neuroscientists', pos:'n', meaning:'神经科学家' }, { word:'objective', pos:'adj', meaning:'客观的；实际的' }, { word:'unsolved', pos:'adj', meaning:'未解决的；悬而未决的' }],
+                // The Global Village
+                [{ word:'interconnected', pos:'adj', meaning:'相互联系的；互联的' }, { word:'instantaneously', pos:'adv', meaning:'即时地；瞬间地' }, { word:'vibrant', pos:'adj', meaning:'充满活力的；生机勃勃的' }, { word:'unprecedented', pos:'adj', meaning:'前所未有的' }, { word:'instability', pos:'n', meaning:'不稳定；动荡' }],
+                // The Psychology of Happiness
+                [{ word:'flourishing', pos:'n', meaning:'繁荣；兴旺；幸福感' }, { word:'subjective', pos:'adj', meaning:'主观的；个人感受的' }, { word:'outweigh', pos:'v', meaning:'超过；比…重要' }, { word:'gratitude', pos:'n', meaning:'感激；感谢' }, { word:'consistently', pos:'adv', meaning:'一贯地；始终如一地' }, { word:'belonging', pos:'n', meaning:'归属感；归属' }],
+                // The Climate Crisis
+                [{ word:'existential', pos:'adj', meaning:'关乎存亡的；存在主义的' }, { word:'endanger', pos:'v', meaning:'危及；使处于危险' }, { word:'unprecedented', pos:'adj', meaning:'前所未有的' }, { word:'devastating', pos:'adj', meaning:'毁灭性的；极具破坏力的' }, { word:'cooperation', pos:'n', meaning:'合作；协作' }, { word:'consequences', pos:'n', meaning:'后果；影响' }],
+                // The Art of Critical Thinking
+                [{ word:'bombarded', pos:'v', meaning:'轰炸；大量涌来' }, { word:'objectively', pos:'adv', meaning:'客观地；公正地' }, { word:'deliberately', pos:'adv', meaning:'故意地；蓄意地' }, { word:'misleading', pos:'adj', meaning:'误导性的；引人误解的' }, { word:'crucial', pos:'adj', meaning:'至关重要的；关键的' }, { word:'overload', pos:'n', meaning:'超负荷；信息过载' }],
+                // The Future of Work
+                [{ word:'inevitably', pos:'adv', meaning:'不可避免地；必然地' }, { word:'adaptability', pos:'n', meaning:'适应能力；灵活性' }, { word:'sectors', pos:'n', meaning:'行业；部门；领域' }, { word:'automation', pos:'n', meaning:'自动化' }, { word:'transition', pos:'n', meaning:'过渡；转变' }, { word:'professions', pos:'n', meaning:'职业；专业' }],
+                // The Power of Silence
+                [{ word:'hyperconnected', pos:'adj', meaning:'超级互联的；过度连接的' }, { word:'commodity', pos:'n', meaning:'商品；有价值的东西' }, { word:'contemplation', pos:'n', meaning:'沉思；冥想' }, { word:'notifications', pos:'n', meaning:'通知；提醒' }, { word:'reflection', pos:'n', meaning:'反思；沉思' }, { word:'unencumbered', pos:'adj', meaning:'无负担的；自由的' }],
+                // The Philosophy of Education
+                [{ word:'holistic', pos:'adj', meaning:'整体的；全面的' }, { word:'cultivation', pos:'n', meaning:'培养；陶冶' }, { word:'ethical', pos:'adj', meaning:'道德的；伦理的' }, { word:'reasoning', pos:'n', meaning:'推理；论证' }, { word:'productivity', pos:'n', meaning:'生产力；效率' }, { word:'well-rounded', pos:'adj', meaning:'全面发展的；均衡的' }],
+                // The Science of Sleep
+                [{ word:'consolidate', pos:'v', meaning:'巩固；整合' }, { word:'deprivation', pos:'n', meaning:'剥夺；缺乏' }, { word:'chronic', pos:'adj', meaning:'长期的；慢性的' }, { word:'wakefulness', pos:'n', meaning:'清醒；觉醒状态' }, { word:'obesity', pos:'n', meaning:'肥胖；过度肥胖' }, { word:'biological', pos:'adj', meaning:'生物的；生理的' }],
+                // The Ethics of Climate Change
+                [{ word:'disproportionately', pos:'adv', meaning:'不成比例地；过度地' }, { word:'inaction', pos:'n', meaning:'不作为；无所作为' }, { word:'negotiations', pos:'n', meaning:'谈判；协商' }, { word:'emissions', pos:'n', meaning:'排放；排放物' }, { word:'justice', pos:'n', meaning:'公正；正义' }, { word:'consequences', pos:'n', meaning:'后果；影响' }],
+                // The Art of Living Alone
+                [{ word:'solitude', pos:'n', meaning:'独处；孤独' }, { word:'restorative', pos:'adj', meaning:'恢复性的；有益身心的' }, { word:'isolation', pos:'n', meaning:'隔离；孤立' }, { word:'misunderstood', pos:'v', meaning:'被误解；误会' }, { word:'creative', pos:'adj', meaning:'有创意的；创造性的' }, { word:'psychological', pos:'adj', meaning:'心理的；精神的' }],
+                // The Digital Dilemma
+                [{ word:'dilemma', pos:'n', meaning:'困境；两难局面' }, { word:'breed', pos:'v', meaning:'滋生；导致' }, { word:'fragmented', pos:'adj', meaning:'碎片化的；分散的' }, { word:'simultaneously', pos:'adv', meaning:'同时地' }, { word:'abundant', pos:'adj', meaning:'丰富的；大量的' }, { word:'anxiety', pos:'n', meaning:'焦虑；忧虑' }],
+                // The Economics of Inequality
+                [{ word:'disparity', pos:'n', meaning:'差距；不平等' }, { word:'accelerating', pos:'adj', meaning:'加速的；不断加快的' }, { word:'implications', pos:'n', meaning:'影响；含义；暗示' }, { word:'unprecedented', pos:'adj', meaning:'前所未有的' }, { word:'widening', pos:'v', meaning:'扩大；加宽' }, { word:'economists', pos:'n', meaning:'经济学家' }],
+                // The Spirit of Adventure
+                [{ word:'innate', pos:'adj', meaning:'天生的；固有的' }, { word:'pioneering', pos:'adj', meaning:'开拓性的；先驱的' }, { word:'horizons', pos:'n', meaning:'视野；眼界' }, { word:'civilization', pos:'n', meaning:'文明；文明社会' }, { word:'collective', pos:'adj', meaning:'集体的；共同的' }, { word:'venture', pos:'v', meaning:'冒险；大胆尝试' }],
+                // The Meaning of Success
+                [{ word:'conventional', pos:'adj', meaning:'传统的；常规的' }, { word:'unfulfilled', pos:'adj', meaning:'未实现的；不满足的' }, { word:'encompasses', pos:'v', meaning:'包含；涵盖' }, { word:'accomplishments', pos:'n', meaning:'成就；成绩' }, { word:'recognition', pos:'n', meaning:'认可；承认' }, { word:'profoundly', pos:'adv', meaning:'深刻地；极度地' }],
+                // The Legacy We Leave
+                [{ word:'inherits', pos:'v', meaning:'继承；沿袭' }, { word:'exploitation', pos:'n', meaning:'开发；剥削；过度利用' }, { word:'collectively', pos:'adv', meaning:'共同地；集体地' }, { word:'generation', pos:'n', meaning:'一代人；代' }, { word:'innovation', pos:'n', meaning:'创新；革新' }, { word:'shaping', pos:'v', meaning:'塑造；影响' }],
+            ]
+        };
+
+        // 词性标签颜色映射
+        const POS_CLASS = { n:'n', v:'v', adj:'adj', adv:'adv', phrase:'phrase' };
+        const POS_LABEL = { n:'n.', v:'v.', adj:'adj.', adv:'adv.', phrase:'phr.' };
+
+        let state = { grade: null, index: 0, isPlaying: false, isRecording: false, mediaRecorder: null, audioBlob: null, recording: null, recognizedTextDuringRecording: '', micChecked: false, currentUser: null };
+
+        // ==================== Supabase 云端账号系统 ====================
+        const SUPABASE_URL = 'https://lefamdfnelijztzaeftv.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_vwCDdbFv3pca2UKvotWQpw_W2y6zjGO';
+
+        // 简单 bcrypt 验证（前端用 SHA256 做密码哈希，后端存明文比对）
+        // 实际用 Supabase 存储，密码用简单 hash 保护
+        async function hashPassword(password) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+        }
+
+        // Supabase REST API 封装
+        async function sbFetch(path, options = {}) {
+            const res = await fetch(SUPABASE_URL + path, {
+                ...options,
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_KEY,
+                    'Content-Type': 'application/json',
+                    'Prefer': options.prefer || '',
+                    ...(options.headers || {})
+                }
+            });
+            if (!res.ok) {
+                const err = await res.text();
+                throw new Error(err);
+            }
+            const text = await res.text();
+            return text ? JSON.parse(text) : null;
+        }
+
+        // 用户相关
+        async function getUsers() {
+            return await sbFetch('/rest/v1/echo_users?select=*&order=created_at.asc') || [];
+        }
+
+        async function getUserByUsername(username) {
+            const rows = await sbFetch('/rest/v1/echo_users?username=eq.' + encodeURIComponent(username) + '&select=*');
+            return rows && rows[0] ? rows[0] : null;
+        }
+
+        async function createUser(data) {
+            const hash = await hashPassword(data.password);
+            return await sbFetch('/rest/v1/echo_users', {
+                method: 'POST',
+                prefer: 'return=representation',
+                body: JSON.stringify({
+                    username: data.username,
+                    password_hash: hash,
+                    role: data.role,
+                    name: data.name,
+                    grade: data.grade || null,
+                    teacher_id: data.teacher_id || null
+                })
+            });
+        }
+
+        async function deleteUser(id) {
+            await sbFetch('/rest/v1/echo_users?id=eq.' + id, { method: 'DELETE' });
+        }
+
+        async function loginUser(username, password) {
+            const user = await getUserByUsername(username);
+            if (!user) return null;
+            const hash = await hashPassword(password);
+            if (user.password_hash !== hash) return null;
+            return user;
+        }
+
+        // 进度相关
+        async function getProgress(userId) {
+            const rows = await sbFetch('/rest/v1/echo_progress?user_id=eq.' + userId + '&select=*') || [];
+            // 转为 { "grade_index": { completed, score } } 格式兼容现有代码
+            const map = {};
+            rows.forEach(r => { map[r.grade + '_' + r.article_index] = { completed: r.completed, score: r.score, id: r.id }; });
+            return map;
+        }
+
+        async function getAllProgress() {
+            return await sbFetch('/rest/v1/echo_progress?select=*') || [];
+        }
+
+        async function saveProgress(userId, grade, articleIndex, completed, score) {
+            await sbFetch('/rest/v1/echo_progress', {
+                method: 'POST',
+                prefer: 'return=representation,resolution=merge-duplicates',
+                headers: { 'Prefer': 'return=representation,resolution=merge-duplicates' },
+                body: JSON.stringify({
+                    user_id: userId,
+                    grade: grade,
+                    article_index: articleIndex,
+                    completed: completed,
+                    score: score,
+                    practiced_at: new Date().toISOString()
+                })
+            });
+        }
+
+        // 当前用户（localStorage 缓存 session）
+        function getCurrentUser() {
+            return JSON.parse(localStorage.getItem('echo_current_user') || 'null');
+        }
+
+        function setCurrentUser(user) {
+            localStorage.setItem('echo_current_user', JSON.stringify(user));
+        }
+
+        function clearCurrentUser() {
+            localStorage.removeItem('echo_current_user');
+        }
+
+        // 重置所有数据（仅管理员）
+        async function resetAllData() {
+            if (!confirm('⚠️ 确定要重置所有数据吗？\n\n这将清除所有账号和练习记录，恢复默认设置。')) return;
+            try {
+                await sbFetch('/rest/v1/echo_progress', { method: 'DELETE', headers: { 'Prefer': '' } });
+                const users = await getUsers();
+                for (const u of users) {
+                    if (u.username !== 'admin') await deleteUser(u.id);
+                }
+                clearCurrentUser();
+                alert('✅ 数据已重置！\n\n默认账号：\n- 用户名：admin\n- 密码：admin123');
+                location.reload();
+            } catch(e) {
+                alert('重置失败：' + e.message);
+            }
+        }
+
+        // 初始化：检查 admin 账号是否存在，不存在则创建
+        async function initAuthData() {
+            try {
+                const admin = await getUserByUsername('admin');
+                if (!admin) {
+                    await createUser({ username: 'admin', password: 'admin123', role: 'admin', name: 'Ann' });
+                }
+            } catch(e) {
+                console.warn('initAuthData error:', e.message);
+            }
+        }
+
+        // 显示加载中遮罩
+        function showLoading(msg) {
+            let el = document.getElementById('global-loading');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'global-loading';
+                el.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99998;';
+                document.body.appendChild(el);
+            }
+            el.innerHTML = '<div style="font-size:36px;margin-bottom:16px;">⏳</div><div style="font-size:16px;color:#4A90E2;font-weight:600;">' + (msg||'加载中...') + '</div>';
+            el.style.display = 'flex';
+        }
+
+        function hideLoading() {
+            const el = document.getElementById('global-loading');
+            if (el) el.style.display = 'none';
+        }
+
+        // 启动初始化
+        showLoading('连接云端...');
+        initAuthData().finally(() => hideLoading());
+        
+        // ⚠️ 检测是否通过 file:// 直接打开（麦克风会失败）
+        if (window.location.protocol === 'file:') {
+            setTimeout(() => {
+                alert('⚠️ 检测到你直接打开了本地文件！\n\n🎤 麦克风功能需要通过本地服务器访问才能正常工作。\n\n请按以下步骤操作：\n1. 打开终端\n2. 运行: cd ~/Desktop && python3 -m http.server 8765\n3. 在浏览器访问: http://localhost:8765/Echo口语练习.html\n\n或者点击确定后，我会帮你自动启动服务器。');
+                
+                // 尝试自动启动服务器（通过打开新标签页提示）
+                const instructions = `
+========================================
+🎤 启动本地服务器步骤：
+========================================
+
+1. 打开终端 (Terminal)
+   
+2. 复制并运行以下命令：
+   cd ~/Desktop && python3 -m http.server 8765
+
+3. 在浏览器中访问：
+   http://localhost:8765/Echo口语练习.html
+
+4. 点击"允许"麦克风权限
+
+========================================
+提示：服务器启动后保持终端窗口打开
+========================================
+                `;
+                console.log(instructions);
+                
+                // 显示友好的引导界面
+                const guide = document.createElement('div');
+                guide.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#4A90E2,#6BB3F0);display:flex;align-items:center;justify-content:center;z-index:99999;';
+                guide.innerHTML = `
+                    <div style="background:white;padding:40px;border-radius:20px;max-width:90%;width:420px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.3);">
+                        <div style="font-size:60px;margin-bottom:20px;">🎤</div>
+                        <h2 style="color:#E65100;margin-bottom:20px;font-size:22px;">需要启动本地服务器</h2>
+                        <p style="color:#666;margin-bottom:24px;font-size:14px;line-height:1.8;">
+                            麦克风功能需要通过本地服务器访问。<br>请按以下步骤操作：
+                        </p>
+                        <div style="background:#FFF3E0;padding:20px;border-radius:12px;margin-bottom:24px;text-align:left;">
+                            <p style="font-weight:600;color:#E65100;margin-bottom:12px;">📝 操作步骤：</p>
+                            <ol style="font-size:13px;color:#666;line-height:2;padding-left:20px;">
+                                <li>打开 <strong>终端 (Terminal)</strong></li>
+                                <li>运行命令：<br><code style="background:#FFE0B2;padding:4px 8px;border-radius:4px;font-size:12px;">cd ~/Desktop && python3 -m http.server 8765</code></li>
+                                <li>访问：<br><code style="background:#FFE0B2;padding:4px 8px;border-radius:4px;font-size:12px;">http://localhost:8765/Echo口语练习.html</code></li>
+                            </ol>
+                        </div>
+                        <button onclick="this.parentElement.parentElement.remove()" style="padding:14px 32px;background:#4A90E2;color:white;border:none;border-radius:10px;cursor:pointer;font-size:16px;font-weight:600;box-shadow:0 4px 12px rgba(74,144,226,0.3);">
+                            我知道了
+                        </button>
+                    </div>
+                `;
+                document.body.appendChild(guide);
+            }, 500);
+        }
+        
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            state.currentUser = currentUser;
+            if (currentUser.role === 'admin') {
+                showScreen('admin');
+            } else if (currentUser.role === 'student') {
+                showScreen('student-home');
+            }
+        }
+
+        // 页面加载时检查麦克风权限
+        // 麦克风权限检测 - 每次都重新检测，不缓存
+        async function checkMicPermission() {
+            try {
+                // 检查浏览器是否支持 Web Speech API
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    console.warn('浏览器不支持语音识别');
+                }
+                
+                // 先检查设备列表
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                
+                console.log('检测到的音频设备:', audioInputs.length);
+                
+                if (audioInputs.length === 0) {
+                    showMicPermissionDialog('no-device');
+                    return false;
+                }
+                
+                // 尝试获取麦克风权限
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(t => t.stop());
+                console.log('麦克风权限正常');
+                return true;
+            } catch (err) {
+                console.error('麦克风权限错误:', err.name, err.message);
+                
+                // 根据错误类型显示不同的对话框
+                let errorType = 'denied';
+                if (err.name === 'NotFoundError') errorType = 'no-device';
+                else if (err.name === 'NotReadableError') errorType = 'in-use';
+                else if (err.name === 'PermissionDismissedError') errorType = 'dismissed';
+                
+                showMicPermissionDialog(errorType);
+                return false;
+            }
+        }
+
+        // 显示麦克风权限引导对话框 - 增强版
+        function showMicPermissionDialog(errorType = 'denied') {
+            const existing = document.getElementById('mic-permission-dialog');
+            if (existing) existing.remove();
+
+            let title = '';
+            let message = '';
+            let steps = '';
+            
+            switch(errorType) {
+                case 'no-device':
+                    title = '❌ 未找到麦克风设备';
+                    message = '系统没有检测到任何麦克风设备。';
+                    steps = '<li>检查 Mac 是否连接了外接麦克风</li><li>确认系统偏好设置 → 声音 → 输入 中能看到麦克风</li><li>尝试重启电脑</li>';
+                    break;
+                case 'in-use':
+                    title = '❌ 麦克风被占用';
+                    message = '麦克风正被其他应用程序使用。';
+                    steps = '<li>关闭其他正在使用麦克风的 app（微信、Zoom、FaceTime 等）</li><li>检查系统右上角的录音指示灯是否亮起</li>';
+                    break;
+                case 'dismissed':
+                    title = '⚠️ 权限请求被忽略';
+                    message = '需要你重新允许麦克风权限。';
+                    steps = '<li>完全退出 Safari (Command+Q)</li><li>重新打开 Echo，然后点击允许</li>';
+                    break;
+                default:
+                    title = '🎙️ 需要麦克风权限';
+                    message = '录音功能需要麦克风权限。';
+                    steps = '<li>点击屏幕左上角 🍎 → <strong>系统设置</strong></li><li>隐私与安全性 → <strong>麦克风</strong></li><li>打开 <strong>Safari</strong> 的麦克风开关</li><li>完全退出 Safari (Command+Q)，重新打开</li>';
+            }
+
+            const dialog = document.createElement('div');
+            dialog.id = 'mic-permission-dialog';
+            dialog.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            dialog.innerHTML = `
+                <div style="background:white;padding:24px;border-radius:16px;max-width:90%;width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+                    <div style="font-size: 20px; font-weight: 700; color: #E65100; margin-bottom: 12px;">${title}</div>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 16px;">${message}</p>
+                    <div style="background: #FFF3E0; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                        <p style="font-size: 13px; color: #E65100; font-weight: 600; margin-bottom: 8px;">请按以下步骤操作：</p>
+                        <ol style="font-size: 12px; color: #666; padding-left: 18px; line-height: 1.8;">
+                            ${steps}
+                        </ol>
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button onclick="openMicSettings()" style="flex:1;padding:12px;background:#4A90E2;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">🔧 打开设置</button>
+                        <button onclick="location.reload()" style="flex:1;padding:12px;background:#27AE60;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">🔄 重试</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(dialog);
+        }
+
+        function openMicSettings() {
+            window.open('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
+        }
+
+        function selectGrade(grade) {
+            state.grade = grade;
+            document.querySelectorAll('.grade-btn').forEach(btn => btn.classList.remove('selected'));
+            event.target.closest('.grade-btn').classList.add('selected');
+            document.getElementById('btn-start').disabled = false;
+        }
+
+        function startPractice() {
+            if (!state.grade) return;
+            
+            // 进入前检查麦克风权限
+            checkMicPermission();
+            
+            state.index = 0;
+            showScreen('reading-practice');
+            updateContent();
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-' + screenId).classList.add('active');
+        }
+
+        function goHome() {
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            if (state.recording) state.recording.pause();
+            if (state.isRecording) toggleRecording();
+
+            if (state.currentUser && state.currentUser.role === 'student') {
+                showScreen('student-home');
+                renderStudentGradeGrid(state.currentUser);
+                renderStudentProgressSummary(state.currentUser);
+            } else {
+                showScreen('home');
+            }
+        }
+
+        function updateContent() {
+            const articles = READING_PRACTICE[state.grade] || [];
+            const article = articles[state.index];
+            document.getElementById('practice-title').textContent = article.title;
+
+            // 词汇高亮渲染
+            const vocabList = (VOCAB_DB[state.grade] || [])[state.index] || [];
+            let html = article.text;
+            // 按词长从长到短排序，避免短词覆盖长词
+            const sortedVocab = [...vocabList].sort((a, b) => b.word.length - a.word.length);
+            sortedVocab.forEach(v => {
+                const escaped = v.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp('\\b(' + escaped + ')\\b', 'gi');
+                html = html.replace(regex, `<span class="vocab-highlight" title="${v.meaning}">$1</span>`);
+            });
+            document.getElementById('practice-content').innerHTML = html;
+
+            // 词汇卡片
+            const vocabCards = document.getElementById('vocab-cards');
+            if (vocabList.length > 0) {
+                vocabCards.style.display = 'block';
+                vocabCards.innerHTML = `
+                    <div style="font-size:13px;font-weight:700;color:#7F8C8D;margin-bottom:8px;letter-spacing:0.5px;">📚 重点词汇</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                        ${vocabList.map(v => `
+                            <div class="vocab-card">
+                                <button class="vocab-play-btn" onclick="playVocab('${v.word.replace(/'/g,"\\'")}')">🔊</button>
+                                <div>
+                                    <span class="vocab-word">${v.word}</span>
+                                    <span class="vocab-pos ${POS_CLASS[v.pos] || ''}">${POS_LABEL[v.pos] || v.pos}</span>
+                                    <div class="vocab-meaning">${v.meaning}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            } else {
+                vocabCards.style.display = 'none';
+            }
+
+            document.getElementById('practice-current').textContent = state.index + 1;
+            document.getElementById('practice-total').textContent = articles.length;
+            document.getElementById('practice-grade').textContent = state.grade === 'primary' ? '小学' : state.grade === 'middle' ? '初中' : '高中';
+            document.getElementById('practice-prev').disabled = state.index === 0;
+            document.getElementById('practice-next').disabled = state.index === articles.length - 1;
+            document.getElementById('btn-play').textContent = '🔊 听标准发音';
+            document.getElementById('btn-record').textContent = '🎙️ 开始录音';
+            document.getElementById('btn-record').classList.remove('recording');
+            document.getElementById('record-status').textContent = '点击录音按钮开始录音';
+            document.getElementById('record-status').className = 'record-status';
+            document.getElementById('record-status').style.display = 'none';
+            document.getElementById('playback-area').style.display = 'none';
+            document.getElementById('correction-area').style.display = 'none';
+            state.isPlaying = false;
+            state.isRecording = false;
+            state.audioBlob = null;
+            state.recording = null;
+            state.recognizedTextDuringRecording = '';
+            // 停止并清理音频流
+            if (state.audioStream) {
+                state.audioStream.getTracks().forEach(t => t.stop());
+                state.audioStream = null;
+            }
+
+            // 显示完成状态
+            const badge = document.getElementById('practice-completed-badge');
+            if (await isArticleCompleted(state.grade, state.index)) {
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        // 检查文章是否已完成
+        async function isArticleCompleted(grade, index) {
+            if (!state.currentUser) return false;
+            const progressMap = await getProgress(state.currentUser.id);
+            const key = grade + '_' + index;
+            return !!(progressMap[key] && progressMap[key].completed);
+        }
+
+        // 标记文章为已完成（async，云端同步）
+        async function markArticleCompleted(grade, index, score, audioData) {
+            if (!state.currentUser) return;
+            await saveProgress(state.currentUser.id, grade, index, true, score);
+            // 录音数据暂存 localStorage（体积大不适合放云端）
+            if (audioData) {
+                const key = 'echo_audio_' + state.currentUser.id + '_' + grade + '_' + index;
+                localStorage.setItem(key, audioData);
+            }
+        }
+
+        // 获取某学生某年级的完成索引列表（async）
+        async function getGradeProgress(userId, grade) {
+            const progressMap = await getProgress(userId);
+            return Object.keys(progressMap)
+                .filter(k => k.startsWith(grade + '_') && progressMap[k].completed)
+                .map(k => parseInt(k.split('_')[1]));
+        }
+
+        // 查找下一个未完成的文章（async）
+        async function findNextIncomplete(grade) {
+            const articles = READING_PRACTICE[grade] || [];
+            const completed = await getGradeProgress(state.currentUser.id, grade);
+            for (let i = 0; i < articles.length; i++) {
+                if (!completed.includes(i)) return i;
+            }
+            return -1;
+        }
+
+        // 获取某学生某文章的录音（从 localStorage）
+        function getStudentAudio(userId, grade, index) {
+            return localStorage.getItem('echo_audio_' + userId + '_' + grade + '_' + index);
+        }
+
+        function nextArticle() {
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            if (state.recording) state.recording.pause();
+            const articles = READING_PRACTICE[state.grade] || [];
+            if (state.index < articles.length - 1) { state.index++; updateContent(); }
+        }
+
+        function prevArticle() {
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            if (state.recording) state.recording.pause();
+            if (state.index > 0) { state.index--; updateContent(); }
+        }
+
+        function playVocab(word) {
+            if (!window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(word);
+            u.lang = 'en-US';
+            u.rate = 0.75;
+            u.pitch = 1.0;
+            u.voice = getBestVoice('en');
+            window.speechSynthesis.speak(u);
+        }
+
+        // 选取最佳英语人声（优先自然人声）
+        function getBestVoice(lang) {
+            const voices = window.speechSynthesis.getVoices();
+            // 优先级：Samantha(macOS) > Daniel(英式) > Karen > Moira > 其他en-US/en-GB
+            const preferred = ['Samantha', 'Daniel', 'Karen', 'Moira', 'Tessa', 'Fiona', 'Rishi'];
+            for (const name of preferred) {
+                const v = voices.find(v => v.name.includes(name));
+                if (v) return v;
+            }
+            // 回退：任意 en-US 或 en-GB
+            return voices.find(v => v.lang === 'en-US') ||
+                   voices.find(v => v.lang === 'en-GB') ||
+                   voices.find(v => v.lang.startsWith('en')) || null;
+        }
+
+        // 文本预处理：加入意群停顿 + 连读友好断句
+        function prepareTextForSpeech(text) {
+            return text
+                // 句末停顿加长（用逗号+空格模拟）
+                .replace(/\. /g, '.  ')
+                .replace(/\? /g, '?  ')
+                .replace(/! /g, '!  ')
+                // 逗号后短停顿
+                .replace(/, /g, ',  ')
+                // 常见意群短语前加轻停顿（介词短语、连词）
+                .replace(/ (because|although|however|therefore|moreover|furthermore|in addition|as a result|for example|such as|in order to|as well as|not only|but also|on the other hand|in fact|of course|at the same time|in the end|after all) /gi,
+                    '  $1 ')
+                // 长句中的关系从句前停顿
+                .replace(/ (which|who|that|where|when|while) /g, '  $1 ');
+        }
+
+        function playAudio() {
+            const btn = document.getElementById('btn-play');
+            if (state.isPlaying) {
+                window.speechSynthesis.cancel();
+                btn.textContent = '🔊 听标准发音';
+                state.isPlaying = false;
+                return;
+            }
+            const articles = READING_PRACTICE[state.grade] || [];
+            const article = articles[state.index];
+
+            // 等待 voices 加载完成再播放
+            const doSpeak = () => {
+                const processedText = prepareTextForSpeech(article.text);
+                const utterance = new SpeechSynthesisUtterance(processedText);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.78;   // 慢速，清晰
+                utterance.pitch = 1.05;  // 略高，更自然有感情
+                utterance.volume = 1.0;
+                const bestVoice = getBestVoice('en');
+                if (bestVoice) utterance.voice = bestVoice;
+                utterance.onstart = () => { state.isPlaying = true; btn.textContent = '⏸️ 停止'; };
+                utterance.onend = () => { state.isPlaying = false; btn.textContent = '🔊 听标准发音'; };
+                utterance.onerror = () => { state.isPlaying = false; btn.textContent = '🔊 听标准发音'; };
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(utterance);
+            };
+
+            // voices 可能异步加载
+            if (window.speechSynthesis.getVoices().length > 0) {
+                doSpeak();
+            } else {
+                window.speechSynthesis.onvoiceschanged = () => { doSpeak(); };
+                // 超时兜底
+                setTimeout(doSpeak, 500);
+            }
+        }
+
+        async function toggleRecording() {
+            const btn = document.getElementById('btn-record');
+            const status = document.getElementById('record-status');
+            const playbackArea = document.getElementById('playback-area');
+
+            if (state.isRecording) {
+                state.mediaRecorder.stop();
+                state.isRecording = false;
+                btn.textContent = '🎙️ 开始录音';
+                btn.classList.remove('recording');
+                status.style.display = 'block';
+                status.textContent = '处理中...';
+                status.className = 'record-status';
+            } else {
+                // 录音前再次检查麦克风权限
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    // 不要停止 stream，直接用它来录音！
+                    
+                    // 为 Safari 选择最佳音频格式
+                    const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 
+                                     MediaRecorder.isTypeSupported('audio/mp3') ? 'audio/mp3' : 
+                                     MediaRecorder.isTypeSupported('audio/aac') ? 'audio/aac' : '';
+                    
+                    state.mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+                    console.log('使用的音频格式:', state.mediaRecorder.mimeType);
+                    state.audioChunks = [];
+                    state.audioStream = stream; // 保存 stream 引用，以便后续停止
+                    
+                    state.recognizedTextDuringRecording = '';
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    if (SpeechRecognition) {
+                        const recognition = new SpeechRecognition();
+                        recognition.continuous = true;
+                        recognition.interimResults = true;
+                        recognition.interimResults = true;
+                        recognition.maxAlternatives = 3;  // 获取多个候选结果
+                        recognition.lang = 'en-US';
+                        
+                        // 保存所有识别结果，包括临时的
+                        let allTranscripts = [];
+                        
+                        recognition.onresult = (event) => {
+                            let finalTranscript = '';
+                            let interimTranscript = '';
+                            
+                            // 遍历所有结果，包括最终的和临时的
+                            for (let i = 0; i < event.results.length; i++) {
+                                const result = event.results[i];
+                                if (result.isFinal) {
+                                    finalTranscript += result[0].transcript + ' ';
+                                } else {
+                                    interimTranscript += result[0].transcript + ' ';
+                                }
+                            }
+                            
+                            // 优先使用最终结果，如果没有最终结果则使用临时的
+                            const bestTranscript = finalTranscript.trim() || interimTranscript.trim();
+                            state.recognizedTextDuringRecording = bestTranscript;
+                            
+                            // 实时更新显示
+                            console.log('识别中:', bestTranscript);
+                        };
+                        
+                        recognition.onerror = (e) => {
+                            console.error('语音识别错误:', e.error);
+                        };
+                        
+                        recognition.start();
+                        state.recognition = recognition;
+                    }
+
+                    // 录音数据处理
+                    state.audioChunks = [];
+                    state.mediaRecorder.ondataavailable = e => { 
+                        if (e.data.size > 0) state.audioChunks.push(e.data);
+                        console.log('收到音频数据:', e.data.size, 'bytes');
+                    };
+                    
+                    state.mediaRecorder.onstop = () => {
+                        // 确保最后的数据也被收集
+                        if (state.audioChunks.length === 0) {
+                            console.error('没有收到任何音频数据');
+                            alert('❌ 没有收到音频数据，请重试');
+                            return;
+                        }
+                        
+                        state.audioBlob = new Blob(state.audioChunks, { type: 'audio/mp4' });
+                        
+                        // 简洁的状态显示，隐藏技术细节
+                        const status = document.getElementById('record-status');
+                        status.style.display = 'block';
+                        status.textContent = '✅ 录音完成';
+                        status.className = 'record-status recorded';
+                        
+                    if (state.audioBlob.size < 1000) {
+                            console.error('录音数据太小，可能有问题:', state.audioBlob.size);
+                        }
+                        
+                        // 创建音频对象
+                        const audioUrl = URL.createObjectURL(state.audioBlob);
+                        state.recording = new Audio(audioUrl);
+                        state.recording.oncanplay = () => console.log('音频可以播放了');
+                        state.recording.onerror = (e) => {
+                            console.error('音频加载错误:', e);
+                            alert('❌ 音频加载失败');
+                        };
+                        
+                        // 停止所有音轨
+                        if (state.audioStream) {
+                            state.audioStream.getTracks().forEach(track => track.stop());
+                        }
+                        playbackArea.style.display = 'block';
+                    };
+
+                    state.mediaRecorder.start();
+                    state.isRecording = true;
+                    btn.textContent = '⏹️ 停止录音';
+                    btn.classList.add('recording');
+                    status.style.display = 'block';
+                    status.textContent = '正在录音... 识别中';
+                    status.className = 'record-status recording';
+                    
+                    // 实时显示识别进度
+                    const recognitionInterval = setInterval(() => {
+                        if (state.recognizedTextDuringRecording && state.isRecording) {
+                            const preview = state.recognizedTextDuringRecording.substring(0, 50);
+                            status.textContent = '正在录音... ' + (preview.length >= 50 ? preview + '...' : preview);
+                        }
+                    }, 500);
+                    
+                    // 停止时清理 interval
+                    const originalOnStop = state.mediaRecorder.onstop;
+                    state.mediaRecorder.onstop = function() {
+                        clearInterval(recognitionInterval);
+                        if (originalOnStop) originalOnStop.call(this, arguments);
+                    };
+                } catch (err) {
+                    console.error('麦克风错误:', err);
+                    
+                    // 详细的错误提示和解决方案
+                    let errorMsg = '';
+                    let helpSteps = '';
+                    
+                    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                        errorMsg = '❌ 麦克风权限被拒绝';
+                        helpSteps = `
+                            <div style="margin-top: 16px; padding: 16px; background: #FFF3E0; border-radius: 10px;">
+                                <p style="font-weight: 600; color: #E65100; margin-bottom: 10px;">🔧 请按以下步骤修复：</p>
+                                <ol style="font-size: 13px; color: #666; line-height: 1.8; padding-left: 20px;">
+                                    <li>点击屏幕左上角 🍎 → <strong>系统设置</strong></li>
+                                    <li>左侧点击 <strong>隐私与安全性</strong> → <strong>麦克风</strong></li>
+                                    <li>找到 <strong>Safari</strong>，确保开关已打开 ✅</li>
+                                    <li>完全退出 Safari (Command+Q)，重新打开</li>
+                                </ol>
+                            </div>`;
+                    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                        errorMsg = '❌ 未找到麦克风设备';
+                        helpSteps = `<p style="margin-top: 12px; color: #666;">请确保已连接麦克风，或检查系统偏好设置中的音频输入设备。</p>`;
+                    } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                        errorMsg = '❌ 麦克风被其他应用占用';
+                        helpSteps = `<p style="margin-top: 12px; color: #666;">请关闭其他正在使用麦克风的应用程序（如微信、Zoom、Teams等），然后重试。</p>`;
+                    } else if (err.message && err.message.includes('HTTPS')) {
+                        errorMsg = '❌ 需要安全连接';
+                        helpSteps = `<p style="margin-top: 12px; color: #666;">麦克风功能需要 HTTPS 连接。请确保使用 https:// 或 localhost 访问。</p>`;
+                    } else {
+                        errorMsg = '❌ 麦克风访问失败';
+                        helpSteps = `<p style="margin-top: 12px; color: #666;">错误详情: ${err.message}</p>`;
+                    }
+                    
+                    // 显示错误卡片
+                    const errorCard = document.createElement('div');
+                    errorCard.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:24px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:9999;max-width:90%;';
+                    errorCard.innerHTML = `
+                        <div style="font-size: 18px; font-weight: 700; color: #E74C3C; margin-bottom: 8px;">${errorMsg}</div>
+                        ${helpSteps}
+                        <button onclick="this.parentElement.remove()" style="margin-top: 16px; padding: 10px 24px; background: #4A90E2; color: white; border: none; border-radius: 8px; cursor: pointer;">我知道了</button>
+                        <button onclick="location.reload()" style="margin-top: 16px; margin-left: 10px; padding: 10px 24px; background: #27AE60; color: white; border: none; border-radius: 8px; cursor: pointer;">重试</button>
+                    `;
+                    document.body.appendChild(errorCard);
+                }
+            }
+        }
+
+        function playRecording() {
+            if (state.recording) {
+                try {
+                    state.recording.currentTime = 0;
+                    state.recording.play();
+                } catch (e) {
+                    console.error('播放异常:', e);
+                    alert('播放异常: ' + e.message);
+                }
+            } else {
+                alert('没有录音可播放，请先录音');
+            }
+        }
+
+        function deleteRecording() {
+            state.recording = null; state.audioBlob = null; state.audioChunks = [];
+            state.recognizedTextDuringRecording = '';
+            document.getElementById('record-status').textContent = '点击录音按钮开始录音';
+            document.getElementById('record-status').className = 'record-status';
+            document.getElementById('playback-area').style.display = 'none';
+            document.getElementById('correction-area').style.display = 'none';
+        }
+
+        function startCorrection() {
+            const correctionArea = document.getElementById('correction-area');
+            correctionArea.style.display = 'block';
+            
+            // 如果正在录音，先停止录音
+            if (state.isRecording) {
+                console.log('纠错时检测到正在录音，先停止录音');
+                state.mediaRecorder.stop();
+                state.isRecording = false;
+                const btn = document.getElementById('btn-record');
+                btn.textContent = '🎙️ 开始录音';
+                btn.classList.remove('recording');
+                document.getElementById('record-status').textContent = '录音已保存';
+                document.getElementById('record-status').className = 'record-status recorded';
+            }
+            
+            const articles = READING_PRACTICE[state.grade] || [];
+            const article = articles[state.index];
+            const originalWords = article.text.toLowerCase().replace(/[^a-z\s]/g, ' ').trim().split(/\s+/).filter(w => w.length > 0);
+            const recognizedText = state.recognizedTextDuringRecording || '';
+            
+            // 调试：检查录音状态
+            console.log('纠错时检查录音:', {
+                hasAudioBlob: !!state.audioBlob,
+                blobSize: state.audioBlob ? state.audioBlob.size : 0,
+                hasRecognizedText: !!recognizedText
+            });
+            
+            if (!recognizedText.trim()) {
+                correctionArea.innerHTML = '<div style="color:#E74C3C; padding: 20px; text-align: center;">未能识别到语音，请重新录音并确保朗读清晰</div>';
+                return;
+            }
+
+            const recognizedWords = recognizedText.toLowerCase().replace(/[^a-z\s]/g, ' ').trim().split(/\s+/).filter(w => w.length > 0);
+            
+            // 改进的匹配算法：考虑顺序和相似度
+            const result = analyzeReading(originalWords, recognizedWords);
+            
+            // 如果刚停止录音，需要等待 audioBlob 生成
+            if (!state.audioBlob || state.audioBlob.size === 0) {
+                // 等待一小段时间让 audioBlob 生成
+                setTimeout(() => {
+                    displayCorrectionResult(result, originalWords, recognizedText);
+                }, 300);
+            } else {
+                displayCorrectionResult(result, originalWords, recognizedText);
+            }
+        }
+
+        // 改进的阅读分析算法 - 更宽松的匹配
+        function analyzeReading(originalWords, recognizedWords) {
+            let correctCount = 0;
+            let missedWords = [];      // 漏读的词
+            let wrongWords = [];       // 读错的词
+            let correctWordList = [];  // 读对的词
+            
+            // 记录已匹配的识别词索引
+            const usedIndices = new Set();
+            
+            // 首先进行正向匹配
+            for (let i = 0; i < originalWords.length; i++) {
+                const originalWord = originalWords[i];
+                let bestMatch = null;
+                let bestSimilarity = 0;
+                let bestIndex = -1;
+                
+                // 在识别结果中查找最佳匹配
+                for (let j = 0; j < recognizedWords.length; j++) {
+                    if (usedIndices.has(j)) continue;
+                    
+                    const recognizedWord = recognizedWords[j];
+                    const sim = wordSimilarity(originalWord, recognizedWord);
+                    
+                    if (sim > bestSimilarity) {
+                        bestSimilarity = sim;
+                        bestMatch = recognizedWord;
+                        bestIndex = j;
+                    }
+                }
+                
+                // 相似度阈值 0.5 更宽松
+                if (bestSimilarity >= 0.5) {
+                    correctCount++;
+                    correctWordList.push({ original: originalWord, recognized: bestMatch, similarity: bestSimilarity });
+                    usedIndices.add(bestIndex);
+                } else {
+                    missedWords.push(originalWord);
+                }
+            }
+            
+            // 后向匹配：从未匹配的原文词开始，从后往前找
+            // 这可以帮助识别那些读错顺序但读对了的词
+            const unmatchedOriginalIndices = [];
+            for (let i = 0; i < originalWords.length; i++) {
+                if (!correctWordList.find(c => c.original === originalWords[i])) {
+                    unmatchedOriginalIndices.push(i);
+                }
+            }
+            
+            // 再次尝试匹配未匹配的词（使用更宽松的阈值）
+            for (let idx of unmatchedOriginalIndices) {
+                const originalWord = originalWords[idx];
+                for (let j = 0; j < recognizedWords.length; j++) {
+                    if (usedIndices.has(j)) continue;
+                    const recognizedWord = recognizedWords[j];
+                    const sim = wordSimilarity(originalWord, recognizedWord);
+                    if (sim >= 0.4) { // 更宽松的二次匹配
+                        correctCount++;
+                        correctWordList.push({ original: originalWord, recognized: recognizedWord, similarity: sim });
+                        usedIndices.add(j);
+                        // 从 missedWords 中移除
+                        missedWords = missedWords.filter(w => w !== originalWord);
+                        break;
+                    }
+                }
+            }
+            
+            // 找出多余的词（识别到了但原文没有）
+            for (let j = 0; j < recognizedWords.length; j++) {
+                if (!usedIndices.has(j)) {
+                    wrongWords.push(recognizedWords[j]);
+                }
+            }
+            
+            const accuracy = originalWords.length > 0 ? Math.round((correctCount / originalWords.length) * 100) : 0;
+            
+            return {
+                accuracy,
+                correctCount,
+                totalWords: originalWords.length,
+                missedWords,
+                wrongWords,
+                correctWordList,
+                recognizedWords
+            };
+        }
+
+        // 计算两个单词的相似度 - 增强版
+        function wordSimilarity(word1, word2) {
+            if (word1 === word2) return 1.0;
+            
+            // 相同词根检查 (如 "playing" vs "play")
+            const root1 = getRoot(word1);
+            const root2 = getRoot(word2);
+            if (root1 && root2 && root1 === root2) return 0.7;
+            
+            // 包含关系
+            if (word1.includes(word2) || word2.includes(word1)) {
+                const shorter = Math.min(word1.length, word2.length);
+                const longer = Math.max(word1.length, word2.length);
+                return shorter / longer;
+            }
+            
+            // 检查常见发音相似替换
+            if (soundsSimilar(word1, word2)) return 0.6;
+            
+            // 编辑距离
+            const distance = levenshteinDistance(word1, word2);
+            const maxLen = Math.max(word1.length, word2.length);
+            return 1 - (distance / maxLen);
+        }
+        
+        // 获取单词词根
+        function getRoot(word) {
+            // 常见词尾移除
+            const suffixes = ['ing', 'ed', 's', 'es', 'ly', 'tion', 'ness', 'ful', 'less'];
+            for (const suffix of suffixes) {
+                if (word.endsWith(suffix) && word.length > suffix.length + 2) {
+                    return word.slice(0, -suffix.length);
+                }
+            }
+            return null;
+        }
+        
+        // 发音相似检查
+        function soundsSimilar(w1, w2) {
+            // 常见发音相似对
+            const similarPairs = [
+                ['th', 's'], ['th', 'z'], ['v', 'w'], ['b', 'p'], ['d', 't'],
+                ['g', 'k'], ['n', 'l'], ['r', 'l'], ['m', 'n'], ['sh', 'ch'],
+                ['f', 'ph'], ['k', 'c'], ['i', 'e'], ['u', 'oo'], ['a', 'e']
+            ];
+            
+            // 长度相近且只有一个字母不同时
+            if (Math.abs(w1.length - w2.length) <= 1 && Math.max(w1.length, w2.length) <= 6) {
+                let diff = 0;
+                for (let i = 0; i < Math.min(w1.length, w2.length); i++) {
+                    if (w1[i] !== w2[i]) diff++;
+                }
+                if (diff <= 1) return true;
+            }
+            return false;
+        }
+
+        // Levenshtein 编辑距离
+        function levenshteinDistance(s1, s2) {
+            const m = s1.length, n = s2.length;
+            if (m === 0) return n;
+            if (n === 0) return m;
+            
+            const dp = [];
+            for (let i = 0; i <= m; i++) {
+                dp[i] = [i];
+            }
+            for (let j = 0; j <= n; j++) {
+                dp[0][j] = j;
+            }
+            
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    if (s1[i - 1] === s2[j - 1]) {
+                        dp[i][j] = dp[i - 1][j - 1];
+                    } else {
+                        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+                    }
+                }
+            }
+            return dp[m][n];
+        }
+
+        // 显示纠错结果
+        function displayCorrectionResult(result, originalWords, recognizedText) {
+            const correctionArea = document.getElementById('correction-area');
+            
+            // 分数颜色
+            let scoreColor = '#E74C3C'; // 红色
+            if (result.accuracy >= 80) scoreColor = '#27AE60'; // 绿色
+            else if (result.accuracy >= 60) scoreColor = '#F39C12'; // 橙色
+            
+            let html = `
+                <div style="font-size: 14px; font-weight: 700; color: #E65100; margin-bottom: 12px;">📊 发音分析结果</div>
+                <div style="font-size: 32px; font-weight: 700; color: ${scoreColor}; text-align: center; margin-bottom: 16px;">${result.accuracy}%</div>
+                <div style="margin-bottom: 12px;">
+                    <p>✅ 正确：<span style="color: #27AE60; font-weight: 600;">${result.correctCount}</span> / ${result.totalWords} 个单词</p>
+            `;
+            
+            // 漏读的词
+            if (result.missedWords.length > 0) {
+                html += `<p style="margin-top: 8px;">❌ <strong>漏读/读错</strong>：`;
+                html += result.missedWords.slice(0, 10).map(w => `<span style="color: #E74C3C; text-decoration: line-through;">${w}</span>`).join(' ');
+                if (result.missedWords.length > 10) html += ' ...';
+                html += `</p>`;
+            }
+            
+            // 多读的词
+            if (result.wrongWords.length > 0 && result.wrongWords.length <= 5) {
+                html += `<p style="margin-top: 8px;">📝 额外识别到：`;
+                html += result.wrongWords.map(w => `<span style="color: #F39C12;">${w}</span>`).join(' ');
+                html += `</p>`;
+            }
+            
+            html += `</div>`;
+            
+            // 显示识别到的原文
+            html += `<div style="margin-top: 12px; padding: 10px; background: #f0f8ff; border-radius: 8px;">`;
+            html += `<p style="font-size: 11px; color: #666; margin-bottom: 6px;">🎤 识别到的内容：</p>`;
+            html += `<p style="font-size: 13px; color: #333; font-style: italic;">${recognizedText.substring(0, 150)}${recognizedText.length > 150 ? '...' : ''}</p>`;
+            html += `</div>`;
+            
+            // 逐词对比
+            html += `<div style="margin-top: 12px; padding: 10px; background: #fff; border-radius: 8px; border: 1px solid #eee;">`;
+            html += `<p style="font-size: 11px; color: #999; margin-bottom: 8px;">原文对比（绿色=正确，红色=漏读/读错）：</p>`;
+            html += `<div style="line-height: 2;">`;
+            
+            for (const word of originalWords) {
+                const isCorrect = result.correctWordList.some(c => c.original === word);
+                if (isCorrect) {
+                    html += `<span style="color: #27AE60; font-weight: 500;">${word}</span> `;
+                } else {
+                    html += `<span style="color: #E74C3C; text-decoration: line-through;">${word}</span> `;
+                }
+            }
+            
+            html += `</div></div>`;
+            
+            // 建议
+            html += `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #FFE0B2; font-size: 12px; color: #666;">`;
+            if (result.accuracy >= 90) {
+                html += '🎉 太棒了！发音非常准确！';
+            } else if (result.accuracy >= 70) {
+                html += '👍 表现不错！注意标红单词的发音，多练习几遍。';
+            } else if (result.accuracy >= 60) {
+                html += '💪 继续加油！建议先听几遍标准发音，注意漏读的单词。';
+            } else {
+                html += '📚 建议先仔细听标准发音，逐句跟读，注意每个单词的读音。';
+            }
+            html += `</div>`;
+
+            // 如果准确率 >= 60%，自动标记为已完成
+            if (result.accuracy >= 60 && state.currentUser && state.grade) {
+                // 保存评分和录音
+                const saveAndMark = (audioBase64) => {
+                    markArticleCompleted(state.grade, state.index, result.accuracy, audioBase64);
+                    document.getElementById('practice-completed-badge').style.display = 'inline-block';
+                    console.log('练习记录已保存:', { grade: state.grade, index: state.index, score: result.accuracy, hasAudio: !!audioBase64 });
+                };
+
+                // 检查是否有录音
+                if (state.audioBlob && state.audioBlob.size > 0) {
+                    // 将录音转为 base64 保存
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        console.log('录音转换完成, base64长度:', reader.result.length);
+                        saveAndMark(reader.result);
+                    };
+                    reader.onerror = (e) => {
+                        console.error('录音转换失败:', e);
+                        saveAndMark(null); // 即使录音转换失败，也保存评分
+                    };
+                    reader.readAsDataURL(state.audioBlob);
+                } else {
+                    console.log('无录音数据，只保存评分');
+                    markArticleCompleted(state.grade, state.index, result.accuracy, null);
+                    document.getElementById('practice-completed-badge').style.display = 'inline-block';
+                }
+
+                const audioStatus = (state.audioBlob && state.audioBlob.size > 0) ? '（含录音）' : '（无录音）';
+                html += `<div style="margin-top:12px;text-align:center;"><span style="background:#E8F5E9;color:#27AE60;padding:8px 16px;border-radius:20px;font-weight:600;">✅ 已标记完成（评分: ${result.accuracy}%）${audioStatus}</span></div>`;
+            } else if (result.accuracy < 60) {
+                html += `<div style="margin-top:12px;text-align:center;"><span style="background:#FFEBEE;color:#E74C3C;padding:8px 16px;border-radius:20px;font-weight:600;">准确率需 ≥60% 才能标记完成</span></div>`;
+            }
+
+            correctionArea.innerHTML = html;
+        }
+
+        // ==================== 账号管理功能 ====================
+
+        // 选择角色
+        let selectedRole = null;
+        function selectRole(role) {
+            selectedRole = role;
+            const btns = document.querySelectorAll('#screen-login .grade-btn');
+            btns.forEach(b => b.classList.remove('selected'));
+            event.target.closest('.grade-btn').classList.add('selected');
+
+            const loginForm = document.getElementById('login-form');
+            const registerBtn = document.getElementById('btn-register');
+
+            loginForm.style.display = 'block';
+
+            if (role === 'student') {
+                registerBtn.style.display = 'block';
+            } else {
+                registerBtn.style.display = 'none';
+            }
+        }
+
+        // 登录
+        async function doLogin() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+
+            if (!username || !password) { alert('请输入用户名和密码'); return; }
+            if (!selectedRole) { alert('请先选择角色'); return; }
+
+            showLoading('登录中...');
+            try {
+                const user = await loginUser(username, password);
+                if (!user) { hideLoading(); alert('用户名或密码错误'); return; }
+                if (user.role !== selectedRole) { hideLoading(); alert('角色不匹配，请重新选择'); return; }
+
+                state.currentUser = user;
+                setCurrentUser(user);
+                hideLoading();
+                enterUserScreen(user);
+            } catch(e) {
+                hideLoading();
+                alert('登录失败，请检查网络：' + e.message);
+            }
+        }
+
+        async function enterUserScreen(user) {
+            if (user.role === 'admin') {
+                showScreen('admin');
+                document.getElementById('admin-name').textContent = user.name;
+                document.getElementById('admin-role-label').textContent = '管理员账号';
+                document.getElementById('tab-teachers').style.display = '';
+                document.getElementById('tab-progress').style.display = '';
+                document.getElementById('admin-reset-section').style.display = 'block';
+                showAdminTab('teachers');
+                await renderTeacherList();
+                await renderStudentList();
+            } else if (user.role === 'teacher') {
+                showScreen('admin');
+                document.getElementById('admin-name').textContent = user.name;
+                document.getElementById('admin-role-label').textContent = '老师账号';
+                document.getElementById('tab-teachers').style.display = 'none';
+                document.getElementById('tab-progress').style.display = '';
+                document.getElementById('admin-reset-section').style.display = 'none';
+                showAdminTab('students');
+                await renderStudentList();
+                await renderProgressPanel();
+            } else if (user.role === 'student') {
+                showScreen('student-home');
+                document.getElementById('student-name').textContent = user.name;
+                const gradeMap = { primary: '小学', middle: '初中', high: '高中' };
+                document.getElementById('student-grade-display').textContent = gradeMap[user.grade] || '';
+                await renderStudentGradeGrid(user);
+                await renderStudentProgressSummary(user);
+            }
+        }
+
+        // 显示注册表单
+        function showRegister() {
+            alert('请联系老师或管理员注册学生账号。管理员可在管理面板中添加学生。');
+        }
+
+        // 退出登录
+        function logout() {
+            state.currentUser = null;
+            clearCurrentUser();
+            selectedRole = null;
+            studentSelectedGrade = null;
+
+            // 重置登录表单
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+            document.getElementById('login-form').style.display = 'none';
+            document.querySelectorAll('#screen-login .grade-btn').forEach(b => b.classList.remove('selected'));
+
+            // 恢复所有 tab 显示
+            document.getElementById('tab-teachers').style.display = '';
+            document.getElementById('tab-progress').style.display = '';
+
+            showScreen('login');
+        }
+
+        // 管理员/老师标签切换
+        function showAdminTab(tab) {
+            // 重置所有 tab 样式
+            ['tab-teachers', 'tab-students', 'tab-progress'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.background = 'var(--bg)';
+                    el.style.color = 'var(--text)';
+                    el.style.fontWeight = 'normal';
+                }
+            });
+
+            // 激活当前 tab
+            const activeId = 'tab-' + tab;
+            const activeEl = document.getElementById(activeId);
+            if (activeEl) {
+                activeEl.style.background = 'var(--primary)';
+                activeEl.style.color = 'white';
+                activeEl.style.fontWeight = '600';
+            }
+
+            document.getElementById('admin-teachers').style.display = tab === 'teachers' ? 'block' : 'none';
+            document.getElementById('admin-students').style.display = tab === 'students' ? 'block' : 'none';
+            document.getElementById('admin-progress').style.display = tab === 'progress' ? 'block' : 'none';
+
+            if (tab === 'progress') {
+                renderProgressPanel();
+            }
+        }
+
+        // 渲染老师列表
+        async function renderTeacherList() {
+            const container = document.getElementById('teacher-list');
+            container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">加载中...</div>';
+            const users = await getUsers();
+            const teachers = users.filter(u => u.role === 'teacher');
+            if (teachers.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无老师账号</div>';
+                return;
+            }
+            container.innerHTML = teachers.map(t => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px;">
+                    <div>
+                        <div style="font-weight:600;">${t.name}</div>
+                        <div style="font-size:12px;color:#999;">用户名: ${t.username}</div>
+                    </div>
+                    <button onclick="doDeleteUser('${t.id}')" style="padding:6px 12px;background:#FFEBEE;color:#E74C3C;border:none;border-radius:6px;cursor:pointer;font-size:12px;">删除</button>
+                </div>
+            `).join('');
+        }
+
+        async function renderStudentList() {
+            const container = document.getElementById('student-list');
+            container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">加载中...</div>';
+            const users = await getUsers();
+            const students = users.filter(u => u.role === 'student');
+            const gradeMap = { primary: '小学', middle: '初中', high: '高中' };
+            if (students.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无学生账号</div>';
+                return;
+            }
+            container.innerHTML = students.map(s => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px;">
+                    <div>
+                        <div style="font-weight:600;">${s.name}</div>
+                        <div style="font-size:12px;color:#999;">用户名: ${s.username} · ${gradeMap[s.grade] || ''}</div>
+                    </div>
+                    <button onclick="doDeleteUser('${s.id}')" style="padding:6px 12px;background:#FFEBEE;color:#E74C3C;border:none;border-radius:6px;cursor:pointer;font-size:12px;">删除</button>
+                </div>
+            `).join('');
+        }
+
+        let addUserRole = null;
+        function showAddUserModal(role) {
+            addUserRole = role;
+            const modal = document.getElementById('add-user-modal');
+            modal.style.display = 'flex';
+            const titleMap = { teacher: '添加老师', student: '添加学生' };
+            document.getElementById('modal-title').textContent = titleMap[role] || '添加用户';
+            document.getElementById('grade-select-group').style.display = role === 'student' ? 'block' : 'none';
+            document.getElementById('new-username').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('new-name').value = '';
+        }
+
+        function closeModal() {
+            document.getElementById('add-user-modal').style.display = 'none';
+        }
+
+        async function addUser() {
+            const username = document.getElementById('new-username').value.trim();
+            const password = document.getElementById('new-password').value.trim();
+            const name = document.getElementById('new-name').value.trim();
+            const grade = document.getElementById('new-grade').value;
+            if (!username || !password || !name) { alert('请填写所有字段'); return; }
+            if (password.length < 4) { alert('密码至少4位'); return; }
+            showLoading('创建账号...');
+            try {
+                const existing = await getUserByUsername(username);
+                if (existing) { hideLoading(); alert('用户名已存在'); return; }
+                await createUser({ username, password, name, role: addUserRole, grade: addUserRole === 'student' ? grade : null });
+                hideLoading();
+                closeModal();
+                alert(`✅ ${name} 账号创建成功！`);
+                if (addUserRole === 'teacher') await renderTeacherList();
+                else await renderStudentList();
+            } catch(e) {
+                hideLoading();
+                alert('创建失败：' + e.message);
+            }
+        }
+
+        async function doDeleteUser(userId) {
+            if (!confirm('确定要删除此用户吗？删除后无法恢复。')) return;
+            showLoading('删除中...');
+            try {
+                await deleteUser(userId);
+                hideLoading();
+                await renderTeacherList();
+                await renderStudentList();
+            } catch(e) {
+                hideLoading();
+                alert('删除失败：' + e.message);
+            }
+        }
+
+        async function renderStudentGradeGrid(user) {
+            const grid = document.getElementById('student-grade-grid');
+            const progressMap = await getProgress(user.id);
+            const grades = [
+                { key: 'primary', label: '小学', icon: '🏫' },
+                { key: 'middle', label: '初中', icon: '🏢' },
+                { key: 'high', label: '高中', icon: '🎓' }
+            ];
+            grid.innerHTML = grades.map(g => {
+                const total = READING_PRACTICE[g.key].length;
+                const done = Object.keys(progressMap).filter(k => k.startsWith(g.key + '_') && progressMap[k].completed).length;
+                const pct = Math.round((done / total) * 100);
+                const isSelected = user.grade === g.key;
+                return `
+                <button class="grade-btn ${isSelected ? 'selected' : ''}" onclick="selectStudentGrade('${g.key}')">
+                    <div style="font-size:28px;">${done === total ? '🏆' : g.icon}</div>
+                    <div style="font-weight:600;">${g.label}</div>
+                    <div style="font-size:11px;margin-top:4px;color:${isSelected ? 'rgba(255,255,255,0.85)' : '#7F8C8D'};">${done}/${total}</div>
+                    <div style="margin-top:6px;height:4px;background:${isSelected ? 'rgba(255,255,255,0.3)' : '#E0E6ED'};border-radius:2px;overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:${isSelected ? 'white' : 'var(--primary)'};border-radius:2px;"></div>
+                    </div>
+                </button>`;
+            }).join('');
+        }
+
+        async function renderStudentProgressSummary(user) {
+            const container = document.getElementById('student-progress-summary');
+            const progressMap = await getProgress(user.id);
+            let totalDone = 0, totalAll = 0;
+            ['primary','middle','high'].forEach(g => {
+                totalDone += Object.keys(progressMap).filter(k => k.startsWith(g + '_') && progressMap[k].completed).length;
+                totalAll += READING_PRACTICE[g].length;
+            });
+            const pct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 0;
+            container.innerHTML = `
+                <div style="background:linear-gradient(135deg,#E8F4FD,#F0F8FF);border-radius:12px;padding:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <span style="font-weight:600;font-size:14px;">总体完成进度</span>
+                        <span style="font-weight:700;color:var(--primary);font-size:18px;">${pct}%</span>
+                    </div>
+                    <div style="height:8px;background:#E0E6ED;border-radius:4px;overflow:hidden;margin-bottom:10px;">
+                        <div style="height:100%;width:${pct}%;background:var(--primary);border-radius:4px;transition:width 0.5s;"></div>
+                    </div>
+                    <div style="font-size:12px;color:#7F8C8D;">已完成 ${totalDone} / ${totalAll} 篇</div>
+                </div>`;
+        }
+
+        let studentSelectedGrade = null;
+        function selectStudentGrade(grade) {
+            studentSelectedGrade = grade;
+            document.querySelectorAll('#student-grade-grid .grade-btn').forEach(b => b.classList.remove('selected'));
+            event.target.closest('.grade-btn').classList.add('selected');
+            document.getElementById('btn-start-practice').disabled = false;
+        }
+
+        async function startPracticeStudent() {
+            if (!studentSelectedGrade) return;
+            checkMicPermission();
+            state.grade = studentSelectedGrade;
+            const progressMap = await getProgress(state.currentUser.id);
+            const total = READING_PRACTICE[studentSelectedGrade].length;
+            let nextIdx = -1;
+            for (let i = 0; i < total; i++) {
+                const key = studentSelectedGrade + '_' + i;
+                if (!progressMap[key] || !progressMap[key].completed) { nextIdx = i; break; }
+            }
+            if (nextIdx === -1) {
+                state.index = 0;
+                showScreen('reading-practice');
+                updateContent();
+                setTimeout(() => {
+                    const badge = document.createElement('div');
+                    badge.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#27AE60;color:white;padding:12px 24px;border-radius:20px;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+                    badge.textContent = '🏆 恭喜！本年级全部练习已完成！';
+                    document.body.appendChild(badge);
+                    setTimeout(() => badge.remove(), 3000);
+                }, 300);
+            } else {
+                state.index = nextIdx;
+                showScreen('reading-practice');
+                updateContent();
+                if (nextIdx > 0) {
+                    setTimeout(() => {
+                        const tip = document.createElement('div');
+                        tip.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+                        tip.textContent = `📌 已跳过 ${nextIdx} 篇已完成的练习`;
+                        document.body.appendChild(tip);
+                        setTimeout(() => tip.remove(), 2500);
+                    }, 300);
+                }
+            }
+        }
+
+        async function renderProgressPanel() {
+            const container = document.getElementById('progress-content');
+            container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">加载中...</div>';
+            const users = await getUsers();
+            const students = users.filter(u => u.role === 'student');
+            const filter = document.getElementById('progress-student-filter');
+            const currentVal = filter.value;
+            filter.innerHTML = '<option value="all">全部学生</option>' +
+                students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            if (currentVal && filter.querySelector(`option[value="${currentVal}"]`)) filter.value = currentVal;
+            const selectedId = filter.value;
+            const targets = selectedId === 'all' ? students : students.filter(s => String(s.id) === selectedId);
+            const gradeMap = { primary: '小学', middle: '初中', high: '高中' };
+            const grades = ['primary', 'middle', 'high'];
+            if (targets.length === 0) { container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无学生账号</div>'; return; }
+            let html = '';
+            for (const student of targets) {
+                const progressMap = await getProgress(student.id);
+                let totalDone = 0, totalAll = 0;
+                grades.forEach(g => {
+                    totalDone += Object.keys(progressMap).filter(k => k.startsWith(g + '_') && progressMap[k].completed).length;
+                    totalAll += READING_PRACTICE[g].length;
+                });
+                const overallPct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 0;
+                html += `
+                <div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <div>
+                            <div style="font-weight:700;font-size:15px;">🎓 ${student.name}</div>
+                            <div style="font-size:12px;color:#7F8C8D;">用户名: ${student.username} · 年级: ${gradeMap[student.grade] || '未设置'}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:20px;font-weight:700;color:var(--primary);">${overallPct}%</div>
+                            <div style="font-size:11px;color:#7F8C8D;">${totalDone}/${totalAll} 篇</div>
+                        </div>
+                    </div>
+                    <div style="height:6px;background:#E0E6ED;border-radius:3px;overflow:hidden;margin-bottom:16px;">
+                        <div style="height:100%;width:${overallPct}%;background:var(--primary);border-radius:3px;"></div>
+                    </div>`;
+                grades.forEach(g => {
+                    const total = READING_PRACTICE[g].length;
+                    const done = Object.keys(progressMap).filter(k => k.startsWith(g + '_') && progressMap[k].completed).length;
+                    const pct = Math.round((done / total) * 100);
+                    const barColor = pct === 100 ? '#27AE60' : pct >= 50 ? '#F39C12' : '#E74C3C';
+                    html += `
+                    <div style="margin-bottom:12px;">
+                        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+                            <span style="font-weight:600;">${gradeMap[g]}</span>
+                            <span style="color:${barColor};font-weight:600;">${done}/${total} 篇 (${pct}%)</span>
+                        </div>
+                        <div style="height:5px;background:#E0E6ED;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;"></div>
+                        </div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function playSavedAudio(audioId) {
+            const audio = document.getElementById(audioId);
+            if (audio) {
+                if (audio.paused) {
+                    document.querySelectorAll('audio').forEach(a => { if (a.id !== audioId) { a.pause(); a.currentTime = 0; } });
+                    audio.currentTime = 0;
+                    audio.play().catch(e => alert('播放失败: ' + e.message));
+                } else { audio.pause(); audio.currentTime = 0; }
+            }
+        }
+    </script>
+</body>
+</html>
