@@ -884,7 +884,7 @@
             }
         }
 
-        function updateContent() {
+        async function updateContent() {
             const articles = READING_PRACTICE[state.grade] || [];
             const article = articles[state.index];
             document.getElementById('practice-title').textContent = article.title;
