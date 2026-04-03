@@ -197,11 +197,7 @@
                 </div>
                 
                 <!-- 管理员专属：重置数据按钮 -->
-                            <div style="background:#FFF3CD;border:1px solid #FFD966;border-radius:8px;padding:10px;margin-bottom:16px;text-align:center;">
-                <span style="font-size:13px;">🔧 </span>
-                <button onclick="testProgress()" style="padding:6px 14px;background:#F39C12;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">测试进度加载</button>
-            </div>
-            <div id="admin-reset-section" style="margin-top:24px;padding-top:20px;border-top:2px dashed #E0E6ED;">
+                <div id="admin-reset-section" style="margin-top:24px;padding-top:20px;border-top:2px dashed #E0E6ED;">
                     <button onclick="resetAllData()" style="width:100%;padding:12px;background:#FFEBEE;color:#E74C3C;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;">🔄 重置所有数据</button>
                     <p style="font-size:11px;color:#999;margin-top:8px;text-align:center;">⚠️ 此操作将清除所有账号和练习记录</p>
                 </div>
@@ -571,12 +567,13 @@
         }
 
         async function createUser(data) {
+            const hash = await hashPassword(data.password);
             return await sbFetch('/rest/v1/echo_users', {
                 method: 'POST',
                 prefer: 'return=representation',
                 body: JSON.stringify({
                     username: data.username,
-                    password_hash: data.password,
+                    password_hash: hash,
                     role: data.role,
                     name: data.name,
                     grade: data.grade || null,
@@ -592,7 +589,8 @@
         async function loginUser(username, password) {
             const user = await getUserByUsername(username);
             if (!user) return null;
-            if (user.password_hash !== password) return null;
+            const hash = await hashPassword(password);
+            if (user.password_hash !== hash) return null;
             return user;
         }
 
@@ -601,7 +599,7 @@
             const rows = await sbFetch('/rest/v1/echo_progress?user_id=eq.' + userId + '&select=*') || [];
             // 转为 { "grade_index": { completed, score } } 格式兼容现有代码
             const map = {};
-            rows.forEach(r => { map[r.grade + '_' + r.article_index] = { completed: r.completed, score: r.score, id: r.id, audio_data: r.audio_data }; });
+            rows.forEach(r => { map[r.grade + '_' + r.article_index] = { completed: r.completed, score: r.score, id: r.id }; });
             return map;
         }
 
@@ -609,7 +607,7 @@
             return await sbFetch('/rest/v1/echo_progress?select=*') || [];
         }
 
-        async function saveProgress(userId, grade, articleIndex, completed, score, audioData) {
+        async function saveProgress(userId, grade, articleIndex, completed, score) {
             await sbFetch('/rest/v1/echo_progress', {
                 method: 'POST',
                 prefer: 'return=representation,resolution=merge-duplicates',
@@ -620,7 +618,6 @@
                     article_index: articleIndex,
                     completed: completed,
                     score: score,
-                    audio_data: audioData || null,
                     practiced_at: new Date().toISOString()
                 })
             });
@@ -887,7 +884,7 @@
             }
         }
 
-        async function updateContent() {
+        function updateContent() {
             const articles = READING_PRACTICE[state.grade] || [];
             const article = articles[state.index];
             document.getElementById('practice-title').textContent = article.title;
@@ -970,7 +967,12 @@
         // 标记文章为已完成（async，云端同步）
         async function markArticleCompleted(grade, index, score, audioData) {
             if (!state.currentUser) return;
-            await saveProgress(state.currentUser.id, grade, index, true, score, audioData);
+            await saveProgress(state.currentUser.id, grade, index, true, score);
+            // 录音数据暂存 localStorage（体积大不适合放云端）
+            if (audioData) {
+                const key = 'echo_audio_' + state.currentUser.id + '_' + grade + '_' + index;
+                localStorage.setItem(key, audioData);
+            }
         }
 
         // 获取某学生某年级的完成索引列表（async）
@@ -1942,94 +1944,77 @@
             }
         }
 
-        
         async function renderProgressPanel() {
             const container = document.getElementById('progress-content');
-            container.innerHTML = '<div id="progress-loading" style="text-align:center;color:#999;padding:20px;">加载中...</div>';
-            try {
-                const users = await getUsers();
-                const students = users.filter(u => u.role === 'student');
-                const filter = document.getElementById('progress-student-filter');
-                const currentVal = filter.value;
-                filter.innerHTML = '<option value="all">全部学生</option>' +
-                    students.map(s => '<option value="' + s.id + '">' + s.name + '</option>').join('');
-                if (currentVal && filter.querySelector('option[value="' + currentVal + '"]')) filter.value = currentVal;
-                const selectedId = filter.value;
-                const targets = selectedId === 'all' ? students : students.filter(s => String(s.id) === selectedId);
-                const gradeMap = { primary: '小学', middle: '初中', high: '高中' };
-                const grades = ['primary', 'middle', 'high'];
-                if (targets.length === 0) {
-                    container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无学生账号</div>';
-                    return;
-                }
-                let html = '';
-                for (const student of targets) {
-                    const progressMap = await getProgress(student.id);
-                    let totalDone = 0, totalAll = 0, totalScore = 0, scored = 0;
-                    grades.forEach(function(g) {
-                        Object.keys(progressMap).forEach(function(k) {
-                            if (k.startsWith(g + '_') && progressMap[k].completed) {
-                                totalDone++;
-                                if (progressMap[k].score != null) { totalScore += progressMap[k].score; scored++; }
-                            }
-                        });
-                        totalAll += READING_PRACTICE[g].length;
-                    });
-                    const overallPct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 0;
-                    const avgScore = scored > 0 ? Math.round(totalScore / scored) : 0;
-                    html += '<div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:16px;">';
-                    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
-                    html += '<div><div style="font-weight:700;font-size:15px;">' + student.name + '</div>';
-                    html += '<div style="font-size:12px;color:#7F8C8D;">' + student.username + ' · ' + (gradeMap[student.grade] || '未设置') + '</div></div>';
-                    html += '<div style="text-align:right;"><div style="font-size:20px;font-weight:700;color:var(--primary);">' + overallPct + '%</div>';
-                    html += '<div style="font-size:11px;color:#7F8C8D;">' + totalDone + '/' + totalAll + ' · 均分' + avgScore + '</div></div></div>';
-                    html += '<div style="height:6px;background:#E0E6ED;border-radius:3px;overflow:hidden;margin-bottom:16px;">';
-                    html += '<div style="height:100%;width:' + overallPct + '%;background:var(--primary);border-radius:3px;"></div></div>';
-                    grades.forEach(function(g) {
-                        const total = READING_PRACTICE[g].length;
-                        const completedKeys = Object.keys(progressMap).filter(function(k) {
-                            return k.startsWith(g + '_') && progressMap[k].completed;
-                        });
-                        const done = completedKeys.length;
-                        const pct = Math.round((done / total) * 100);
-                        const barColor = pct === 100 ? '#27AE60' : pct >= 50 ? '#F39C12' : '#E74C3C';
-                        html += '<div style="margin-bottom:16px;">';
-                        html += '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">';
-                        html += '<span style="font-weight:600;">' + gradeMap[g] + '</span>';
-                        html += '<span style="color:' + barColor + ';font-weight:600;">' + done + '/' + total + ' (' + pct + '%)</span></div>';
-                        html += '<div style="height:5px;background:#E0E6ED;border-radius:3px;overflow:hidden;margin-bottom:10px;">';
-                        html += '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:3px;"></div></div>';
-                        if (done > 0) {
-                            html += '<button onclick="var el=this.nextElementSibling;if(el.style.display=='none'){el.style.display='block';this.textContent='🔼 收起'}else{el.style.display='none';this.textContent='🔽 查看详情 (' + done + '篇)'}" ';
-                            html += 'style="font-size:12px;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;margin-bottom:4px;font-weight:600;">🔽 查看详情 (' + done + '篇)</button>';
-                            html += '<div style="display:none;background:white;border-radius:8px;overflow:hidden;">';
-                            completedKeys.forEach(function(k) {
-                                const idx = parseInt(k.split('_')[1]);
-                                const rec = progressMap[k];
-                                const article = READING_PRACTICE[g][idx];
-                                if (!article) return;
-                                const sColor = rec.score == null ? '#999' : rec.score >= 80 ? '#27AE60' : rec.score >= 60 ? '#F39C12' : '#E74C3C';
-                                const audioData = rec.audio_data || '';
-                                const audioId = 'audio-' + student.id + '-' + g + '-' + idx;
-                                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #f0f0f0;">';
-                                html += '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (idx + 1) + '. ' + article.title + '</div></div>';
-                                html += '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">';
-                                html += '<span style="font-size:14px;font-weight:700;color:' + sColor + ';">' + (rec.score != null ? rec.score + '分' : '无') + '</span>';
-                                html += '<button onclick="playAudioByData(this,'' + audioData.replace(/'/g, "\'") + '')" style="padding:4px 10px;background:#4A90E2;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🔊 播放</button>';
-                                html += '</div></div>';
-                            });
-                            html += '</div>';
-                        }
-                        html += '</div>';
-                    });
-                    html += '</div>';
-                }
-                container.innerHTML = html;
-            } catch(e) {
-                const loading = document.getElementById('progress-loading');
-                if (loading) loading.remove();
-                container.innerHTML = '<div style="color:#E74C3C;padding:20px;">加载失败: ' + e.message + '<br><button onclick="renderProgressPanel()" style="margin-top:10px;padding:8px 16px;background:#4A90E2;color:white;border:none;border-radius:6px;cursor:pointer;">重试</button></div>';
-                console.error('renderProgressPanel error:', e);
+            container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">加载中...</div>';
+            const users = await getUsers();
+            const students = users.filter(u => u.role === 'student');
+            const filter = document.getElementById('progress-student-filter');
+            const currentVal = filter.value;
+            filter.innerHTML = '<option value="all">全部学生</option>' +
+                students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            if (currentVal && filter.querySelector(`option[value="${currentVal}"]`)) filter.value = currentVal;
+            const selectedId = filter.value;
+            const targets = selectedId === 'all' ? students : students.filter(s => String(s.id) === selectedId);
+            const gradeMap = { primary: '小学', middle: '初中', high: '高中' };
+            const grades = ['primary', 'middle', 'high'];
+            if (targets.length === 0) { container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无学生账号</div>'; return; }
+            let html = '';
+            for (const student of targets) {
+                const progressMap = await getProgress(student.id);
+                let totalDone = 0, totalAll = 0;
+                grades.forEach(g => {
+                    totalDone += Object.keys(progressMap).filter(k => k.startsWith(g + '_') && progressMap[k].completed).length;
+                    totalAll += READING_PRACTICE[g].length;
+                });
+                const overallPct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 0;
+                html += `
+                <div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <div>
+                            <div style="font-weight:700;font-size:15px;">🎓 ${student.name}</div>
+                            <div style="font-size:12px;color:#7F8C8D;">用户名: ${student.username} · 年级: ${gradeMap[student.grade] || '未设置'}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:20px;font-weight:700;color:var(--primary);">${overallPct}%</div>
+                            <div style="font-size:11px;color:#7F8C8D;">${totalDone}/${totalAll} 篇</div>
+                        </div>
+                    </div>
+                    <div style="height:6px;background:#E0E6ED;border-radius:3px;overflow:hidden;margin-bottom:16px;">
+                        <div style="height:100%;width:${overallPct}%;background:var(--primary);border-radius:3px;"></div>
+                    </div>`;
+                grades.forEach(g => {
+                    const total = READING_PRACTICE[g].length;
+                    const done = Object.keys(progressMap).filter(k => k.startsWith(g + '_') && progressMap[k].completed).length;
+                    const pct = Math.round((done / total) * 100);
+                    const barColor = pct === 100 ? '#27AE60' : pct >= 50 ? '#F39C12' : '#E74C3C';
+                    html += `
+                    <div style="margin-bottom:12px;">
+                        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+                            <span style="font-weight:600;">${gradeMap[g]}</span>
+                            <span style="color:${barColor};font-weight:600;">${done}/${total} 篇 (${pct}%)</span>
+                        </div>
+                        <div style="height:5px;background:#E0E6ED;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;"></div>
+                        </div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function playSavedAudio(audioId) {}
+        function playAudioByData(btn, audioData) { if(!audioData){alert("暂无录音");return;} const audio=new Audio(audioData); document.querySelectorAll("audio").forEach(a=>a.pause()); audio.play().catch(e=>alert("播放失败")); btn.textContent="⏸️"; audio.onended=()=>{btn.textContent="🔊 播放";}; }
+            const audio = document.getElementById(audioId);
+            if (audio) {
+                if (audio.paused) {
+                    document.querySelectorAll('audio').forEach(a => { if (a.id !== audioId) { a.pause(); a.currentTime = 0; } });
+                    audio.currentTime = 0;
+                    audio.play().catch(e => alert('播放失败: ' + e.message));
+                } else { audio.pause(); audio.currentTime = 0; }
             }
         }
->
+    </script>
+</body>
+</html>
