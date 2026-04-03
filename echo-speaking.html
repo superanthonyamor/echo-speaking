@@ -1960,12 +1960,16 @@
             let html = '';
             for (const student of targets) {
                 const progressMap = await getProgress(student.id);
-                let totalDone = 0, totalAll = 0;
+                let totalDone = 0, totalAll = 0, totalScore = 0, scored = 0;
                 grades.forEach(g => {
-                    totalDone += Object.keys(progressMap).filter(k => k.startsWith(g + '_') && progressMap[k].completed).length;
+                    Object.keys(progressMap).filter(k => k.startsWith(g + '_') && progressMap[k].completed).forEach(k => {
+                        totalDone++;
+                        if (progressMap[k].score != null) { totalScore += progressMap[k].score; scored++; }
+                    });
                     totalAll += READING_PRACTICE[g].length;
                 });
                 const overallPct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 0;
+                const avgScore = scored > 0 ? Math.round(totalScore / scored) : 0;
                 html += `
                 <div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:16px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -1975,7 +1979,7 @@
                         </div>
                         <div style="text-align:right;">
                             <div style="font-size:20px;font-weight:700;color:var(--primary);">${overallPct}%</div>
-                            <div style="font-size:11px;color:#7F8C8D;">${totalDone}/${totalAll} 篇</div>
+                            <div style="font-size:11px;color:#7F8C8D;">${totalDone}/${totalAll} 篇 · 平均 ${avgScore}分</div>
                         </div>
                     </div>
                     <div style="height:6px;background:#E0E6ED;border-radius:3px;overflow:hidden;margin-bottom:16px;">
@@ -1983,19 +1987,57 @@
                     </div>`;
                 grades.forEach(g => {
                     const total = READING_PRACTICE[g].length;
-                    const done = Object.keys(progressMap).filter(k => k.startsWith(g + '_') && progressMap[k].completed).length;
+                    // 收集本年级所有完成的文章（带评分）
+                    const completedArticles = [];
+                    Object.keys(progressMap).forEach(k => {
+                        if (k.startsWith(g + '_') && progressMap[k].completed) {
+                            const idx = parseInt(k.split('_')[1]);
+                            completedArticles.push({ idx, score: progressMap[k].score });
+                        }
+                    });
+                    completedArticles.sort((a, b) => a.idx - b.idx);
+                    const done = completedArticles.length;
                     const pct = Math.round((done / total) * 100);
                     const barColor = pct === 100 ? '#27AE60' : pct >= 50 ? '#F39C12' : '#E74C3C';
+                    const gradeAvgScore = scored > 0 ? Math.round(completedArticles.reduce((s, a) => s + (a.score || 0), 0) / (completedArticles.filter(a => a.score != null).length || 1)) : 0;
                     html += `
-                    <div style="margin-bottom:12px;">
+                    <div style="margin-bottom:16px;">
                         <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
                             <span style="font-weight:600;">${gradeMap[g]}</span>
                             <span style="color:${barColor};font-weight:600;">${done}/${total} 篇 (${pct}%)</span>
                         </div>
-                        <div style="height:5px;background:#E0E6ED;border-radius:3px;overflow:hidden;">
+                        <div style="height:5px;background:#E0E6ED;border-radius:3px;overflow:hidden;margin-bottom:8px;">
                             <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;"></div>
-                        </div>
-                    </div>`;
+                        </div>`;
+                    // 展开/收起按钮
+                    if (completedArticles.length > 0) {
+                        html += `<button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display?'none':'block';this.textContent=this.nextElementSibling.style.display?'🔽 查看详情':'🔼 收起'" style="font-size:12px;color:var(--primary);background:none;border:none;cursor:pointer;padding:0;margin-bottom:4px;">🔽 查看详情</button>`;
+                        html += `<div style="display:none;background:white;border-radius:8px;overflow:hidden;">`;
+                        completedArticles.forEach(ca => {
+                            const article = READING_PRACTICE[g][ca.idx];
+                            if (!article) return;
+                            const sColor = ca.score == null ? '#999' : ca.score >= 80 ? '#27AE60' : ca.score >= 60 ? '#F39C12' : '#E74C3C';
+                            const audioKey = 'echo_audio_' + student.id + '_' + g + '_' + ca.idx;
+                            const hasAudio = typeof localStorage !== 'undefined' && localStorage.getItem(audioKey);
+                            const audioId = 'audio-' + student.id + '-' + g + '-' + ca.idx;
+                            html += `
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #f0f0f0;">
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${article.title}</div>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                                    <span style="font-size:14px;font-weight:700;color:${sColor};">${ca.score != null ? ca.score + '分' : '无评分'}</span>`;
+                            if (hasAudio) {
+                                html += `<button onclick="playSavedAudio('${audioId}')" style="padding:4px 10px;background:var(--primary);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🔊 播放</button>
+                                         <audio id="${audioId}" src="${hasAudio}" preload="none"></audio>`;
+                            } else {
+                                html += `<span style="font-size:11px;color:#ccc;">无录音</span>`;
+                            }
+                            html += `</div></div>`;
+                        });
+                        html += `</div>`; // end detail list
+                    }
+                    html += `</div>`;
                 });
                 html += `</div>`;
             }
